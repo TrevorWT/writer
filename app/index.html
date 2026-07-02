@@ -132,6 +132,7 @@ window.addEventListener('unhandledrejection', e => reportErr('async: ' + (e.reas
 
   dialog h3 { margin:16px 0 10px; font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:var(--dim); border-bottom:1px solid var(--line); padding-bottom:4px; }
   dialog input[type=range] { display:block; width:100%; margin-top:4px; }
+  dialog textarea { display:block; width:100%; margin-top:4px; background:var(--bg); color:var(--text); border:1px solid var(--line); border-radius:6px; padding:7px 9px; font:inherit; font-size:14px; resize:vertical; }
 
   [contenteditable] { outline:none; }
   [contenteditable]:empty::before { color:var(--ph); font-style:italic; }
@@ -251,7 +252,7 @@ window.addEventListener('unhandledrejection', e => reportErr('async: ' + (e.reas
   </div>
   <div id="storyheader" hidden>
     <div id="backlib">‹ All stories</div>
-    <div id="storyname"></div>
+    <div style="display:flex;align-items:center"><div id="storyname" style="flex:1"></div><span id="storyinfobtn" class="secbtn" title="Story details (author, contact)"></span></div>
     <div class="sechead">Outline<span class="secbtns"><span id="outlinetoggle" class="secbtn" title="Expand / collapse all">⊞</span></span></div>
     <div id="outlinelist"></div>
   </div>
@@ -286,6 +287,25 @@ window.addEventListener('unhandledrejection', e => reportErr('async: ' + (e.reas
   </form>
 </dialog>
 
+<dialog id="storyinfodlg">
+  <form id="storyinfoform" method="dialog">
+    <h2>Story details</h2>
+    <label>Author
+      <input type="text" id="si-author" autocomplete="off">
+    </label>
+    <label>Byline — pen name, if different
+      <input type="text" id="si-byline" autocomplete="off" placeholder="defaults to author">
+    </label>
+    <label>Contact info — one line each (address, email, phone)
+      <textarea id="si-contact" rows="4"></textarea>
+    </label>
+    <div class="btns">
+      <button type="button" onclick="this.closest('dialog').close()">Cancel</button>
+      <button type="submit">Save</button>
+    </div>
+  </form>
+</dialog>
+
 <dialog id="exportdlg">
   <form id="exportform">
     <h2>Export</h2>
@@ -306,6 +326,9 @@ window.addEventListener('unhandledrejection', e => reportErr('async: ' + (e.reas
         <option value="* * *" selected>* * *</option>
         <option value="">Blank line</option>
       </select>
+    </label>
+    <label style="display:flex;align-items:center;gap:8px;color:var(--text)">
+      <input type="checkbox" id="ex-titlepage" checked style="width:auto;margin:0">Title page (author, contact, word count)
     </label>
     <label>Include per layer</label>
     <div id="ex-layers"></div>
@@ -382,7 +405,7 @@ window.addEventListener('unhandledrejection', e => reportErr('async: ' + (e.reas
 </div>
 
 <script type="module">
-import { parse, serialize, treeHeight, chapterFileName, serializeChapter, serializeSkeleton, cleanText, wordCount } from './parser.js';
+import { parse, serialize, treeHeight, chapterFileName, serializeChapter, serializeSkeleton, cleanText, wordCount, splitFrontmatter, buildFrontmatter } from './parser.js';
 import { initFS } from './fs.js';
 const FS = initFS();
 
@@ -419,9 +442,11 @@ document.getElementById('newtag').innerHTML = icon('plus', 14);
 document.getElementById('undobtn').innerHTML = icon('undo', 14);
 document.getElementById('redobtn').innerHTML = icon('redo', 14);
 document.getElementById('modebtn').innerHTML = icon('pencil', 13) + ' editing';
+document.getElementById('storyinfobtn').innerHTML = icon('pencil', 12);
 
 const KIND = ['Story', 'Part', 'Chapter', 'Scene', 'Page', 'Section', 'Section'];
 let libPath = null, storyPath = null, storyName = '', storyTree = null;
+let storyMeta = {};   // frontmatter of story.md: author, byline, contact[]
 let currentTagPath = null;
 let unwatchStory = null, lastSaveAt = 0, watchTimer = null;
 const openCats = new Set();   // categories are collapsed unless opened
@@ -491,7 +516,7 @@ async function save() {
       chapterCache.set(fname, text);
     }
   }
-  await FS.writeText(FS.join(storyPath, 'story.md'), serializeSkeleton(tree, H));
+  await FS.writeText(FS.join(storyPath, 'story.md'), buildFrontmatter(storyMeta) + serializeSkeleton(tree, H));
   // sweep chapter files that no longer correspond to a chapter — NEVER hard
   // delete: anything with content goes to .trash/ first
   for (const f of await FS.readDir(chDir)) {
@@ -1571,7 +1596,9 @@ async function openStory(name, el) {
   const sf = FS.join(storyPath, 'story.md');
   const text = (await FS.exists(sf)) ? await FS.readText(sf) : '';
   storyBackup = text;
-  tree = parse(text, name);
+  const fm = splitFrontmatter(text);
+  storyMeta = fm.meta;
+  tree = parse(fm.body, name);
   await resolveChapterEmbeds(storyPath, tree);
   undoStack.length = 0; redoStack.length = 0; updateHistBtns();
   storyTree = tree;
@@ -1605,6 +1632,18 @@ $('backlib').onclick = () => {
   render();
 };
 $('storyname').onclick = () => openStory(storyName);
+$('storyinfobtn').onclick = () => {
+  $('si-author').value = storyMeta.author || '';
+  $('si-byline').value = storyMeta.byline || '';
+  $('si-contact').value = [].concat(storyMeta.contact || []).join('\n');
+  $('storyinfodlg').showModal();
+};
+$('storyinfoform').onsubmit = () => {
+  storyMeta.author = $('si-author').value.trim();
+  storyMeta.byline = $('si-byline').value.trim();
+  storyMeta.contact = $('si-contact').value.split('\n').map(s => s.trim()).filter(Boolean);
+  save();
+};
 makeDropTarget($('storyname'), () => [storyTree, storyTree.children.length]);   // drop = promote to top level
 $('newstory').onclick = () => { $('ns-name').value = ''; $('newstorydlg').showModal(); };
 $('ns-template').onchange = () => { $('ns-custom').hidden = $('ns-template').value !== 'custom'; };
@@ -1658,18 +1697,37 @@ function compileNode(n, base, opts) {
   }
   return out;
 }
-function mdToHtml(md, title) {
+function titlePageData(root) {
+  const wc = wordCount(root);
+  return {
+    approx: (Math.max(100, Math.round(wc / 100) * 100)).toLocaleString(),
+    by: storyMeta.byline || storyMeta.author || '',
+    contact: [].concat(storyMeta.contact || []),
+    author: storyMeta.author || '',
+  };
+}
+function mdToHtml(md, title, tp) {
   const blocks = md.split('\n\n').map(b => {
     const h = b.match(/^(#{1,6}) (.*)$/s);
     if (h) return `<h${h[1].length}>${esc(h[2])}</h${h[1].length}>`;
     if (b.trim() === '* * *') return '<p class="sep">* * *</p>';
     return b.split(/\n\n+/).map(p => '<p>' + esc(p).replace(/\n/g, '<br>') + '</p>').join('');
   }).join('\n');
+  const titlePage = tp ? `<div class="titlepage">
+    <div class="tp-head"><div class="tp-contact">${tp.contact.map(esc).join('<br>')}</div><div class="tp-wc">approx. ${tp.approx} words</div></div>
+    <div class="tp-mid"><h1>${esc(title)}</h1>${tp.by ? `<p class="tp-by">by ${esc(tp.by)}</p>` : ''}</div>
+  </div>` : `<h1>${esc(title)}</h1>`;
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${esc(title)}</title><style>
   body{font-family:Georgia,serif;max-width:640px;margin:40px auto;padding:0 20px;line-height:1.7;color:#222}
   h1,h2,h3,h4{line-height:1.3} .sep{text-align:center;margin:2em 0}
-  em{font-style:italic} @media print{body{margin:0;max-width:none}}
-  </style></head><body><h1>${esc(title)}</h1>\n${blocks.replace(/_([^_\n]+)_/g, '<em>$1</em>')}\n</body></html>`;
+  em{font-style:italic}
+  .titlepage{min-height:90vh;display:flex;flex-direction:column}
+  .tp-head{display:flex;justify-content:space-between;align-items:flex-start;line-height:1.5}
+  .tp-contact{text-align:left} .tp-wc{text-align:right}
+  .tp-mid{flex:1;display:flex;flex-direction:column;justify-content:center;text-align:center}
+  .tp-by{margin-top:.4em;font-size:1.15em}
+  @media print{body{margin:0;max-width:none}.titlepage{min-height:auto;height:95vh;page-break-after:always}}
+  </style></head><body>${titlePage}\n${blocks.replace(/_([^_\n]+)_/g, '<em>$1</em>')}\n</body></html>`;
 }
 function download(name, text, type) {
   const a = document.createElement('a');
@@ -1719,8 +1777,16 @@ $('exportform').onsubmit = e => {
   const md = compileNode(root, root.depth, opts).join('\n\n');
   $('exportdlg').close();
   const safe = title.replace(/[\\/:*?"<>|]/g, '');
-  if ($('ex-format').value === 'html') download(safe + '.html', mdToHtml(md, title), 'text/html');
-  else download(safe + '.md', `# ${title}\n\n${md}\n`, 'text/markdown');
+  const tp = $('ex-titlepage').checked ? titlePageData(root) : null;
+  if ($('ex-format').value === 'html') {
+    download(safe + '.html', mdToHtml(md, title, tp), 'text/html');
+  } else {
+    const head = tp
+      ? (tp.contact.length ? tp.contact.join('\n') + '\n\n' : '') +
+        `approx. ${tp.approx} words\n\n# ${title}\n\n${tp.by ? `by ${tp.by}\n\n` : ''}---\n\n`
+      : `# ${title}\n\n`;
+    download(safe + '.md', head + md + '\n', 'text/markdown');
+  }
 };
 
 // ---- settings ----

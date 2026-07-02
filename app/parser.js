@@ -4,6 +4,37 @@
 // %%…%% blocks are per-section notes (Obsidian comment syntax), kept out of
 // the prose body. Inline annotations (==text==%%note%%) stay in the body.
 
+// minimal YAML frontmatter: `key: value` lines and `key:` + `- item` lists.
+// Story metadata (author, byline, contact) lives here, Obsidian-compatible.
+export function splitFrontmatter(md) {
+  const meta = {};
+  const m = md.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
+  if (!m) return { meta, body: md };
+  let curKey = null;
+  for (const line of m[1].split(/\r?\n/)) {
+    const li = line.match(/^\s*- (.*)$/);
+    if (li && curKey) {
+      if (!Array.isArray(meta[curKey])) meta[curKey] = [];
+      meta[curKey].push(li[1]);
+      continue;
+    }
+    const kv = line.match(/^([A-Za-z_][\w-]*):\s*(.*)$/);
+    if (kv) { curKey = kv[1]; if (kv[2]) meta[curKey] = kv[2]; }
+  }
+  return { meta, body: md.slice(m[0].length).replace(/^(\r?\n)+/, '') };
+}
+export function buildFrontmatter(meta) {
+  const keys = Object.keys(meta).filter(k =>
+    Array.isArray(meta[k]) ? meta[k].length : String(meta[k] || '').trim());
+  if (!keys.length) return '';
+  let out = '---\n';
+  for (const k of keys) {
+    if (Array.isArray(meta[k])) { out += k + ':\n'; for (const v of meta[k]) out += '  - ' + v + '\n'; }
+    else out += k + ': ' + meta[k] + '\n';
+  }
+  return out + '---\n\n';
+}
+
 export function parse(md, rootTitle, { unwrap = true } = {}) {
   const root = { depth: 0, title: rootTitle, body: '', notes: '', children: [] };
   const stack = [root];

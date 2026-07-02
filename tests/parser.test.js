@@ -1,6 +1,21 @@
 // Run: node tests/parser.test.js
 import assert from 'node:assert/strict';
-import { parse, serialize, serializeChapter, serializeSkeleton, treeHeight, chapterFileName, cleanText, wordCount } from '../app/parser.js';
+import { parse, serialize, serializeChapter, serializeSkeleton, treeHeight, chapterFileName, cleanText, wordCount, splitFrontmatter, buildFrontmatter } from '../app/parser.js';
+
+// frontmatter: scalars, lists, CRLF, round-trip, absent
+{
+  const fm = splitFrontmatter('---\nauthor: Trevor T\ncontact:\n  - 123 Street\n  - t@pdx.edu\n---\n\nlogline\n\n# A\n');
+  assert.equal(fm.meta.author, 'Trevor T');
+  assert.deepEqual(fm.meta.contact, ['123 Street', 't@pdx.edu']);
+  assert.ok(fm.body.startsWith('logline'));
+  const rebuilt = buildFrontmatter(fm.meta);
+  assert.deepEqual(splitFrontmatter(rebuilt + fm.body).meta, fm.meta);
+  assert.deepEqual(splitFrontmatter('no frontmatter here').meta, {});
+  assert.equal(buildFrontmatter({}), '');
+  assert.equal(buildFrontmatter({ author: '  ' }), '');
+  const crlf = splitFrontmatter('---\r\nauthor: X\r\n---\r\nbody');
+  assert.equal(crlf.meta.author, 'X');
+}
 
 // basic structure + root body
 const t = parse('logline\n\n# A\n\nbody [[Bob]]\n\n## C1\n\n# B\n', 'My Story');
