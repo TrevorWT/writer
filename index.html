@@ -180,7 +180,7 @@
   <div id="tagsection" hidden>
     <h3>Tags</h3>
     <div id="taglist"></div>
-    <button id="newtag" style="margin-top:8px">+ New tag</button>
+    <button id="newtag" style="margin-top:8px">+ New category</button>
   </div>
 </div>
 <div id="sidegrip" title="Drag to resize"></div>
@@ -1018,9 +1018,13 @@ async function openTagByName(name) {
   }
   openTag(cat, name);
 }
-$('newtag').onclick = () => {
-  const name = prompt('Tag name:');
-  if (name) openTagByName(name.trim());
+// tags themselves are created from the writing (highlight -> right-click);
+// the explorer builds the scaffolding: categories and their templates
+$('newtag').onclick = async () => {
+  const cat = prompt('New category name (character, location, item, …):');
+  if (!cat) return;
+  await openTemplate(cat.trim().toLowerCase());
+  await refreshTags();
 };
 
 // create a tag file without navigating away from where you're writing
