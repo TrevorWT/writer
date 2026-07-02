@@ -311,7 +311,7 @@ function parse(md, rootTitle) {
   const root = { depth: 0, title: rootTitle, body: '', children: [] };
   const stack = [root];
   let cur = root;
-  for (const line of md.split('\n')) {
+  for (const line of md.split(/\r?\n/)) {
     const m = line.match(/^(#{1,6})(?:\s+(.*))?$/);
     if (m) {
       const node = { depth: m[1].length, title: (m[2] || '').trim(), body: '', children: [] };
