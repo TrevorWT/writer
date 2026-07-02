@@ -47,7 +47,9 @@
   .tag:hover, .tag.active { background:var(--btn); }
   .arrow { display:inline-block; width:14px; color:var(--dim); cursor:pointer; font-size:10px; flex-shrink:0; user-select:none; }
   .orow { display:flex; align-items:center; padding:3px 8px; border-radius:5px; cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .orow:hover, .orow.active { background:var(--btn); }
+  .orow:hover { background:var(--btn); }
+  .orow.active { background:var(--btn); box-shadow:inset 2px 0 0 var(--accent); }
+  .orow.active > span:last-child { color:var(--accent); }
   .cat { cursor:pointer; user-select:none; }
   button { background:var(--btn); color:var(--text); border:none; border-radius:5px; padding:6px 10px; cursor:pointer; font-family:system-ui,sans-serif; }
   button:hover { background:var(--btnh); }
