@@ -93,6 +93,9 @@
   #main.writing #focus:has(#backlinks:not([hidden])) #focusbody { flex:0 0 auto; padding-bottom:0; }
   #main.writing #focus:has(#backlinks:not([hidden])) #backlinks { max-height:none; flex:1; }
   #main.writing #panels { flex:0 0 auto; padding:0 30px 8px; }
+  /* leaf view: the lone add button must be visible, not hover-only */
+  #main.writing #panels .plus { opacity:.55; }
+  #main.writing #panels .plus:hover { opacity:1; }
 
   dialog h3 { margin:16px 0 10px; font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:var(--dim); border-bottom:1px solid var(--line); padding-bottom:4px; }
   dialog input[type=range] { display:block; width:100%; margin-top:4px; }
