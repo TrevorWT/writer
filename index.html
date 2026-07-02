@@ -426,8 +426,16 @@ async function writeFile(fh, text) {
   await w.write(text);
   await w.close();
 }
+let storyBackup = null;   // raw story.md as loaded; trashed once on first save
 async function save() {
   if (currentTag) { await writeFile(currentFile, serialize(tree)); return; }
+  if (storyBackup !== null) {
+    if (storyBackup.trim()) {
+      const trash = await storyDir.getDirectoryHandle('.trash', { create: true });
+      await writeFile(await trash.getFileHandle(`${Date.now()} story.md`, { create: true }), storyBackup);
+    }
+    storyBackup = null;
+  }
   const H = treeHeight(tree);
   const chaptersDir = await storyDir.getDirectoryHandle('chapters', { create: true });
   const used = new Set();
@@ -448,11 +456,22 @@ async function save() {
     }
   }
   await writeFile(storyFile, serializeSkeleton(H));
-  // sweep chapter files that no longer exist (deleted or renamed chapters)
+  // sweep chapter files that no longer correspond to a chapter — NEVER hard
+  // delete: anything with content goes to .trash/ first
   const stale = [];
   for await (const f of chaptersDir.values())
     if (f.kind === 'file' && f.name.endsWith('.md') && !used.has(f.name)) stale.push(f.name);
-  for (const name of stale) { await chaptersDir.removeEntry(name); chapterCache.delete(name); }
+  for (const name of stale) {
+    try {
+      const text = await (await (await chaptersDir.getFileHandle(name)).getFile()).text();
+      if (text.trim()) {
+        const trash = await storyDir.getDirectoryHandle('.trash', { create: true });
+        await writeFile(await trash.getFileHandle(`${Date.now()} ${name}`, { create: true }), text);
+      }
+    } catch {}
+    await chaptersDir.removeEntry(name);
+    chapterCache.delete(name);
+  }
 }
 let saveTimer = null;
 function queueSave() { clearTimeout(saveTimer); saveTimer = setTimeout(save, 600); }
@@ -751,7 +770,9 @@ function panelEl(node) {
   };
   el._node = node;
   makeDraggable(el, node);
-  makeDropTarget(el, () => [node, node.children.length]);   // drop ON a panel = nest inside it
+  // drop ON a panel = insert before it (reorder). Nesting is deliberate-only,
+  // via the outline tree — an accidental nest reshapes the whole story.
+  makeDropTarget(el, () => { const p = focus(); return [p, p.children.indexOf(node)]; });
   return el;
 }
 
@@ -1302,7 +1323,10 @@ async function resolveChapterEmbeds(dirHandle, root) {
         (function fix(k, d) { k.depth = d; k.children.forEach(x => fix(x, d + 1)); })(chapter, node.depth + 1);
         chapterCache.set(fname, serializeChapter(chapter));
         loaded.push(chapter);
-      } catch { console.warn('missing chapter file', fname); }
+      } catch {
+        // keep a placeholder so a missing file is visible and its slot survives saves
+        loaded.push({ depth: node.depth + 1, title: fname.replace(/\.md$/, ''), body: '(missing chapter file: ' + fname + ')', notes: '', children: [] });
+      }
     }
     node.children = [...loaded, ...node.children];
   }
@@ -1319,6 +1343,7 @@ async function openStory(dirHandle, el) {
   currentFile = storyFile;
   currentTag = null;
   const text = await (await storyFile.getFile()).text();
+  storyBackup = text;
   tree = parse(text, dirHandle.name);
   await resolveChapterEmbeds(dirHandle, tree);
   storyTree = tree;
