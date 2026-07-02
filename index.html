@@ -633,11 +633,17 @@ function renderBacklinks() {
 }
 
 // ---- sidebar outline tree ----
+let lastOutlineFocus = null;
 function renderOutline() {
   const list = $('outlinelist');
   list.innerHTML = '';
   if (!storyTree) return;
-  if (!currentTag) path.slice(1, -1).forEach(n => n._open = true);   // reveal where you are
+  // reveal where you are — but only on navigation, so manual expand/contract
+  // clicks aren't immediately overridden
+  if (!currentTag && focus() !== lastOutlineFocus) {
+    path.slice(1, -1).forEach(n => n._open = true);
+    lastOutlineFocus = focus();
+  }
   (function walk(n, anc, indent) {
     for (const c of n.children) {
       const p = [...anc, c];
