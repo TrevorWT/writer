@@ -33,15 +33,21 @@
   #crumbs span:hover { color:var(--text); }
   #crumbs .sep { margin:0 6px; cursor:default; }
 
-  #focus { max-width:720px; margin:0 auto; padding:10px 24px 0; width:100%; text-align:center; }
+  :root { --measure:720px; --fsize:17px; --lheight:1.7; }
+  #focus { max-width:var(--measure); margin:0 auto; padding:10px 24px 0; width:100%; text-align:center; }
   #focustitle { font-size:2.1em; font-weight:bold; cursor:text; line-height:1.2; }
   #focuskind { font-family:system-ui,sans-serif; font-size:11px; text-transform:uppercase; letter-spacing:.15em; color:var(--dim); margin-bottom:6px; }
-  #focusbody { text-align:left; white-space:pre-wrap; line-height:1.7; margin:14px 0 6px; cursor:text; min-height:1.5em; max-height:20vh; overflow-y:auto; color:#cfcdc6; }
+  #focusbody { text-align:left; white-space:pre-wrap; font-size:var(--fsize); line-height:var(--lheight); margin:14px 0 6px; cursor:text; min-height:1.5em; max-height:20vh; overflow-y:auto; color:#cfcdc6; }
   #focusbody:empty::before { content:"click to write…"; color:#565662; font-style:italic; }
   /* leaf scene = a real writing surface: editor takes the whole height */
-  #main.writing #focus { flex:1; min-height:0; display:flex; flex-direction:column; max-width:780px; }
-  #main.writing #focusbody { flex:1; max-height:none; overflow-y:auto; font-size:1.06em; padding-bottom:20vh; }
+  #main.writing #focus { flex:1; min-height:0; display:flex; flex-direction:column; }
+  #main.writing #focusbody { flex:1; max-height:none; overflow-y:auto; padding-bottom:20vh; }
   #main.writing #panels { flex:0 0 auto; padding:0 30px 8px; }
+
+  #textbtn { font-size:13px; padding:5px 10px; flex-shrink:0; margin-left:8px; }
+  #textpop { position:absolute; top:44px; right:16px; background:#2c2c36; border:1px solid #4a4a58; border-radius:8px; padding:14px 16px; z-index:50; box-shadow:0 8px 24px rgba(0,0,0,.5); font-family:system-ui,sans-serif; font-size:12px; color:var(--dim); }
+  #textpop label { display:block; margin-bottom:10px; }
+  #textpop input { width:180px; display:block; margin-top:3px; }
 
   [contenteditable] { outline:none; }
   [contenteditable]:empty::before { color:#565662; font-style:italic; }
@@ -116,7 +122,12 @@
   </div>
 </div>
 <div id="main">
-  <div id="crumbs"><div id="crumbpath"></div><button id="modebtn" hidden title="Toggle read-only (like Obsidian's reading view)">✏️ editing</button></div>
+  <div id="crumbs"><div id="crumbpath"></div><button id="modebtn" hidden title="Toggle read-only (like Obsidian's reading view)">✏️ editing</button><button id="textbtn" hidden title="Text settings">Aa</button></div>
+  <div id="textpop" hidden>
+    <label>Column width <span id="v-measure"></span><input type="range" id="s-measure" min="560" max="1400" step="20"></label>
+    <label>Text size <span id="v-fsize"></span><input type="range" id="s-fsize" min="14" max="26" step="1"></label>
+    <label>Line spacing <span id="v-lheight"></span><input type="range" id="s-lheight" min="1.3" max="2.2" step="0.05"></label>
+  </div>
   <div id="focus" hidden>
     <div id="focuskind"></div>
     <div id="focustitle"></div>
@@ -233,6 +244,7 @@ function render() {
   $('hint').hidden = has;
   $('focus').hidden = !has;
   $('modebtn').hidden = !has;
+  $('textbtn').hidden = !has;
   $('crumbpath').innerHTML = '';
   $('panels').innerHTML = '';
   if (!has) { $('timeline').hidden = true; return; }
@@ -447,6 +459,28 @@ function editTitle(node, el) {
   el.onclick = e => e.stopPropagation();
   el.onblur = () => { node.title = el.innerText.trim() || node.title; save(); render(); };
 }
+
+// ---- text settings (persisted) ----
+const SETTINGS = { measure: { unit: 'px', def: 720 }, fsize: { unit: 'px', def: 17 }, lheight: { unit: '', def: 1.7 } };
+const stored = JSON.parse(localStorage.getItem('writer-text') || '{}');
+for (const key in SETTINGS) {
+  const s = SETTINGS[key], input = $('s-' + key);
+  const apply = v => {
+    document.documentElement.style.setProperty('--' + key, v + s.unit);
+    $('v-' + key).textContent = v + s.unit;
+  };
+  input.value = stored[key] || s.def;
+  apply(input.value);
+  input.oninput = () => {
+    apply(input.value);
+    stored[key] = +input.value;
+    localStorage.setItem('writer-text', JSON.stringify(stored));
+  };
+}
+$('textbtn').onclick = () => { $('textpop').hidden = !$('textpop').hidden; };
+document.addEventListener('mousedown', e => {
+  if (!e.target.closest('#textpop,#textbtn')) $('textpop').hidden = true;
+});
 
 $('modebtn').onclick = () => {
   readonly = !readonly;
