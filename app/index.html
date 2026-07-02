@@ -323,9 +323,13 @@ window.addEventListener('unhandledrejection', e => reportErr('async: ' + (e.reas
     </label>
     <label>Format
       <select id="ex-format">
-        <option value="md" selected>Markdown (.md)</option>
+        <option value="docx" selected>Word (.docx) — for agents and editors</option>
+        <option value="md">Markdown (.md)</option>
         <option value="html">HTML (.html) — print to PDF from the browser</option>
       </select>
+    </label>
+    <label style="display:flex;align-items:center;gap:8px;color:var(--text)">
+      <input type="checkbox" id="ex-smf" checked style="width:auto;margin:0">Standard Manuscript Format (.docx: Times 12, double-spaced, running header)
     </label>
     <label>Scene separator
       <select id="ex-sep">
@@ -412,6 +416,7 @@ window.addEventListener('unhandledrejection', e => reportErr('async: ' + (e.reas
 
 <script type="module">
 import { parse, serialize, treeHeight, chapterFileName, serializeChapter, serializeSkeleton, cleanText, wordCount, splitFrontmatter, buildFrontmatter } from './parser.js';
+import { makeDocx } from './docx.js';
 import { initFS } from './fs.js';
 const FS = initFS();
 
@@ -1716,7 +1721,7 @@ function mdToHtml(md, title, tp) {
   const blocks = md.split('\n\n').map(b => {
     const h = b.match(/^(#{1,6}) (.*)$/s);
     if (h) return `<h${h[1].length}>${esc(h[2])}</h${h[1].length}>`;
-    if (b.trim() === '* * *') return '<p class="sep">* * *</p>';
+    if (b.trim() === '* * *') return '<p class="sep">&#42; &#42; &#42;</p>';   // entity-escaped so the emphasis regex can't eat it
     return b.split(/\n\n+/).map(p => '<p>' + esc(p).replace(/\n/g, '<br>') + '</p>').join('');
   }).join('\n');
   const titlePage = tp ? `<div class="titlepage">
@@ -1733,7 +1738,10 @@ function mdToHtml(md, title, tp) {
   .tp-mid{flex:1;display:flex;flex-direction:column;justify-content:center;text-align:center}
   .tp-by{margin-top:.4em;font-size:1.15em}
   @media print{body{margin:0;max-width:none}.titlepage{min-height:auto;height:95vh;page-break-after:always}}
-  </style></head><body>${titlePage}\n${blocks.replace(/_([^_\n]+)_/g, '<em>$1</em>')}\n</body></html>`;
+  </style></head><body>${titlePage}\n${blocks
+    .replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*([^*\n]+)\*/g, '<em>$1</em>')
+    .replace(/_([^_\n]+)_/g, '<em>$1</em>')}\n</body></html>`;
 }
 function download(name, text, type) {
   const a = document.createElement('a');
@@ -1780,11 +1788,20 @@ $('exportform').onsubmit = e => {
     if (t) layers[li] = { title: t.checked, contents: c.checked, numbers: nu.checked };
   }
   const opts = { sep: $('ex-sep').value, H, layers };
-  const md = compileNode(root, root.depth, opts).join('\n\n');
+  const blocks = compileNode(root, root.depth, opts);
+  const md = blocks.join('\n\n');
   $('exportdlg').close();
   const safe = title.replace(/[\\/:*?"<>|]/g, '');
   const tp = $('ex-titlepage').checked ? titlePageData(root) : null;
-  if ($('ex-format').value === 'html') {
+  if ($('ex-format').value === 'docx') {
+    const bytes = makeDocx(blocks, {
+      title,
+      titlePage: tp,
+      smf: $('ex-smf').checked,
+      author: storyMeta.author || (tp && tp.by) || '',
+    });
+    download(safe + '.docx', bytes, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+  } else if ($('ex-format').value === 'html') {
     download(safe + '.html', mdToHtml(md, title, tp), 'text/html');
   } else {
     const head = tp
