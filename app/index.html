@@ -111,8 +111,9 @@ window.addEventListener('unhandledrejection', e => reportErr('async: ' + (e.reas
   #focus { max-width:var(--measure); margin:0 auto; padding:10px 24px 0; width:100%; text-align:center; }
   #titlerow { position:relative; }
   #focustitle { font-size:2.1em; font-weight:bold; cursor:text; line-height:1.2; }
-  #upbtn { position:absolute; left:0; top:50%; transform:translateY(-50%); width:36px; height:36px; border-radius:50%; background:transparent; border:none; padding:0; display:flex; align-items:center; justify-content:center; color:var(--dim); cursor:pointer; }
-  #upbtn:hover { background:var(--hover); color:var(--text); }
+  #upbtn { position:absolute; left:0; top:50%; transform:translateY(-50%); width:42px; height:42px; border-radius:50%; background:var(--btn); border:1px solid var(--line); padding:0; display:flex; align-items:center; justify-content:center; color:var(--text); cursor:pointer; box-shadow:0 2px 8px var(--shadow); }
+  #upbtn:hover { background:var(--accent); border-color:var(--accent); color:#111; }
+  body.light #upbtn:hover { color:#fff; }
   #focuskind { font-family:system-ui,sans-serif; font-size:11px; text-transform:uppercase; letter-spacing:.15em; color:var(--dim); margin-bottom:6px; }
   #focusbody { text-align:left; white-space:pre-wrap; font-size:var(--fsize); line-height:var(--lheight); margin:14px 0 6px; cursor:text; min-height:1.5em; max-height:20vh; overflow-y:auto; color:var(--text2); }
   #focusbody:empty::before { content:"click to write…"; color:var(--ph); font-style:italic; }
