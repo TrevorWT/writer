@@ -810,9 +810,12 @@ function panelEl(node) {
   };
   el._node = node;
   makeDraggable(el, node);
-  // drop ON a panel = insert before it (reorder). Nesting is deliberate-only,
-  // via the outline tree — an accidental nest reshapes the whole story.
-  makeDropTarget(el, () => { const p = focus(); return [p, p.children.indexOf(node)]; });
+  // drop ON a panel = insert before it (reorder); Alt+drop = nest inside it.
+  // Plain nesting-by-drop is too easy to do by accident — it reshapes the story.
+  el.title = 'Drag to reorder · hold Alt while dropping to nest inside';
+  makeDropTarget(el, e => e && e.altKey
+    ? [node, node.children.length]
+    : (() => { const p = focus(); return [p, p.children.indexOf(node)]; })());
   return el;
 }
 
@@ -887,7 +890,7 @@ function makeDropTarget(el, getTarget) {   // getTarget() -> [parent, index]
     e.preventDefault();
     e.stopPropagation();
     el.classList.remove('dragover');
-    const [parent, index] = getTarget();
+    const [parent, index] = getTarget(e);
     moveNode(dragNode, parent, index);
   });
 }
