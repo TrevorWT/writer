@@ -67,6 +67,12 @@
   #tlabel { position:absolute; bottom:100%; left:50%; transform:translateX(-50%); margin-bottom:10px; background:#3a3a46; color:var(--text); font-family:system-ui,sans-serif; font-size:12px; padding:3px 8px; border-radius:4px; white-space:nowrap; }
 
   #hint { color:var(--dim); font-family:system-ui,sans-serif; margin:120px auto; text-align:center; line-height:1.8; }
+
+  #ctxmenu { position:fixed; background:#2c2c36; border:1px solid #4a4a58; border-radius:8px; font-family:system-ui,sans-serif; font-size:13px; z-index:99; box-shadow:0 8px 24px rgba(0,0,0,.5); padding:4px; min-width:180px; }
+  #ctxmenu .head { padding:6px 12px 4px; color:var(--dim); font-size:11px; text-transform:uppercase; letter-spacing:.06em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:240px; }
+  #ctxmenu .item { padding:7px 12px; border-radius:5px; cursor:pointer; text-transform:capitalize; }
+  #ctxmenu .item:hover { background:#3a3a46; }
+  #ctxmenu .item.new { color:var(--dim); font-style:italic; text-transform:none; }
 </style>
 </head>
 <body>
@@ -107,6 +113,7 @@ let currentTag = null;     // {cat, name} when viewing a tag page, else null
 let tree = null, path = [];
 let readonly = false;
 let tagIndex = new Map();  // name -> category
+let allCats = [];          // categories present in this story
 
 const $ = id => document.getElementById(id);
 const kindName = depth => currentTag ? (depth === 0 ? currentTag.cat : 'Section') : (KIND[depth] || 'Section');
@@ -158,8 +165,10 @@ function queueSave() { clearTimeout(saveTimer); saveTimer = setTimeout(save, 600
 function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 const escRe = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 function anchor(name) { return `<a class="entity" data-name="${name}">${name}</a>`; }
-function linkify(s) {
-  let html = esc(s).replace(/\[\[([^\]]+)\]\]/g, (m, n) => anchor(n));
+// edit=true keeps unknown [[names]] as literal text so the editable div's
+// innerText round-trips to valid markdown (known tags need no brackets at all)
+function linkify(s, edit) {
+  let html = esc(s).replace(/\[\[([^\]]+)\]\]/g, (m, n) => (edit && !tagIndex.has(n)) ? m : anchor(n));
   const names = [...tagIndex.keys()].sort((a, b) => b.length - a.length);
   if (names.length) {
     const re = new RegExp('\\b(' + names.map(escRe).join('|') + ')\\b', 'g');
@@ -210,17 +219,17 @@ function render() {
   ft.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); ft.blur(); } };
 
   const fb = $('focusbody');
+  fb.onclick = e => { if (e.target.classList.contains('entity')) openTagByName(e.target.dataset.name); };
   if (readonly) {
     fb.contentEditable = 'false';
     fb.innerHTML = linkify(f.body);
-    fb.onclick = e => { if (e.target.classList.contains('entity')) openTagByName(e.target.dataset.name); };
-    fb.oninput = fb.onblur = null;
+    fb.oninput = fb.onblur = fb.onpaste = null;
   } else {
-    fb.contentEditable = 'plaintext-only';
-    fb.textContent = f.body;
-    fb.onclick = null;
+    fb.contentEditable = 'true';
+    fb.innerHTML = linkify(f.body, true);
     fb.oninput = () => { f.body = fb.innerText.replace(/\n+$/, ''); queueSave(); };
     fb.onblur = () => { clearTimeout(saveTimer); save(); };
+    fb.onpaste = e => { e.preventDefault(); document.execCommand('insertText', false, e.clipboardData.getData('text/plain')); };
   }
 
   const wrap = $('panels');
@@ -376,7 +385,9 @@ $('main').addEventListener('wheel', e => {
   } else acc = 0;
 }, { passive: false });
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape' && tree && path.length > 1 && !e.target.matches('input,textarea,[contenteditable]')) { path.pop(); render(); }
+  if (e.key !== 'Escape') return;
+  if ($('ctxmenu')) { closeCtx(); return; }
+  if (tree && path.length > 1 && !e.target.matches('input,textarea,[contenteditable]')) { path.pop(); render(); }
 });
 
 // ---- tags ----
@@ -404,6 +415,8 @@ async function refreshTags() {
     const tags = await storyDir.getDirectoryHandle('tags');
     for await (const d of tags.values()) if (d.kind === 'directory') await scanDir(d.name, d);
   } catch {}
+
+  allCats = cats.map(c => c.cat);
 
   // explorer
   $('tagsection').hidden = false;
@@ -475,6 +488,57 @@ $('newtag').onclick = () => {
   const name = prompt('Tag name:');
   if (name) openTagByName(name.trim());
 };
+
+// create a tag file without navigating away from where you're writing
+async function createTag(cat, name) {
+  const dir = await getTagDir(cat, true);
+  const fh = await dir.getFileHandle(name + '.md', { create: true });
+  const text = await (await fh.getFile()).text();
+  if (!text.trim()) { const w = await fh.createWritable(); await w.write(await templateText(cat)); await w.close(); }
+  await refreshTags();
+  render();
+}
+
+// ---- highlight -> right-click -> tag ----
+function closeCtx() { const m = $('ctxmenu'); if (m) m.remove(); }
+document.addEventListener('contextmenu', e => {
+  closeCtx();
+  if (!tree || !storyDir) return;
+  const name = document.getSelection().toString().trim();
+  if (!name || name.length > 60 || name.includes('\n') || tagIndex.has(name)) return;
+  if (!e.target.closest('#main')) return;
+  e.preventDefault();
+
+  const menu = document.createElement('div');
+  menu.id = 'ctxmenu';
+  const head = document.createElement('div');
+  head.className = 'head';
+  head.textContent = `Tag "${name}" as`;
+  menu.appendChild(head);
+  const cats = [...new Set([...allCats.filter(c => c !== 'entities'), 'character', 'location', 'item'])].sort();
+  for (const cat of cats) {
+    const it = document.createElement('div');
+    it.className = 'item';
+    it.textContent = cat;
+    it.onclick = () => { closeCtx(); createTag(cat, name); };
+    menu.appendChild(it);
+  }
+  const nw = document.createElement('div');
+  nw.className = 'item new';
+  nw.textContent = 'new category…';
+  nw.onclick = () => {
+    closeCtx();
+    const cat = prompt('Category name:');
+    if (cat) createTag(cat.trim().toLowerCase(), name);
+  };
+  menu.appendChild(nw);
+
+  document.body.appendChild(menu);
+  const r = menu.getBoundingClientRect();
+  menu.style.left = Math.min(e.clientX, innerWidth - r.width - 8) + 'px';
+  menu.style.top = Math.min(e.clientY, innerHeight - r.height - 8) + 'px';
+});
+document.addEventListener('mousedown', e => { if (!e.target.closest('#ctxmenu')) closeCtx(); });
 
 // ---- library / stories ----
 $('openbtn').onclick = async () => {
