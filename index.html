@@ -109,6 +109,13 @@
   #notespanel .nclose { margin-left:auto; cursor:pointer; padding:2px 8px; }
   #notestext { flex:1; overflow-y:auto; white-space:pre-wrap; font-family:system-ui,sans-serif; font-size:14px; line-height:1.6; color:#cfcdc6; cursor:text; background:var(--bg); border-radius:8px; padding:12px; }
   #notestext:empty::before { content:"Notes about this section — reminders, research, todos. Never part of the manuscript."; color:#565662; font-style:italic; }
+  #annotlist { margin-top:12px; overflow-y:auto; max-height:45%; flex-shrink:0; font-family:system-ui,sans-serif; font-size:13px; }
+  #annotlist .alhead { color:var(--dim); font-size:11px; text-transform:uppercase; letter-spacing:.08em; margin-bottom:6px; }
+  .alrow { padding:8px 10px; border-radius:6px; cursor:pointer; background:var(--bg); margin-bottom:6px; }
+  .alrow:hover { background:#33333d; }
+  .alrow .altext { color:#e8c07d; font-style:italic; }
+  .alrow .alnote { color:#cfcdc6; margin-top:3px; }
+  mark.annot.flash { background:rgba(232,192,125,.65); }
 
   #backlinks { text-align:left; max-height:32vh; overflow-y:auto; margin:2.4em 0 10px; font-family:system-ui,sans-serif; font-size:13px; }
   #backlinks summary { cursor:pointer; color:var(--dim); padding:0 0 6px; user-select:none; }
@@ -184,6 +191,7 @@
   <div id="notesgrip" title="Drag to resize"></div>
   <div class="nhead">Notes<b id="noteslabel"></b><span class="nclose" title="Close">✕</span></div>
   <div id="notestext" contenteditable="plaintext-only"></div>
+  <div id="annotlist"></div>
 </div>
 
 <script>
@@ -399,9 +407,32 @@ function renderNotes() {
   const f = tree && focus();
   $('notestab').hidden = !f;
   if (!f) { $('notespanel').classList.remove('open'); return; }
-  $('notestab').classList.toggle('has', !!f.notes);
   $('noteslabel').textContent = labelOf(f);
   $('notestext').textContent = f.notes || '';
+
+  // highlight notes in this section (Google Docs-style comment list)
+  const list = $('annotlist');
+  list.innerHTML = '';
+  const annots = [...f.body.matchAll(/==([^=\n]+)==%%([\s\S]*?)%%/g)];
+  $('notestab').classList.toggle('has', !!f.notes || !!annots.length);
+  if (!annots.length) return;
+  const h = document.createElement('div');
+  h.className = 'alhead';
+  h.textContent = `Highlight notes (${annots.length})`;
+  list.appendChild(h);
+  annots.forEach((m, i) => {
+    const row = document.createElement('div');
+    row.className = 'alrow';
+    row.innerHTML = `<div class="altext">“${esc(m[1])}”</div>` + (m[2].trim() ? `<div class="alnote">${esc(m[2])}</div>` : '');
+    row.onclick = () => {
+      const mk = document.querySelectorAll('#focusbody mark.annot')[i];
+      if (!mk) return;
+      mk.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      mk.classList.add('flash');
+      setTimeout(() => { mk.classList.remove('flash'); openAnnot(mk); }, 400);
+    };
+    list.appendChild(row);
+  });
 }
 $('notestab').onclick = () => { $('notespanel').classList.add('open'); $('notestext').focus(); };
 document.querySelector('#notespanel .nclose').onclick = () => $('notespanel').classList.remove('open');
@@ -953,6 +984,7 @@ function closeAnnot() {
   $('annotpop').hidden = true;
   clearTimeout(saveTimer);
   save();
+  renderNotes();
 }
 $('annottext').oninput = () => {
   if (!curMark) return;
