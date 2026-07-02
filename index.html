@@ -176,7 +176,7 @@
   <div id="storyheader" hidden>
     <div id="backlib" style="color:var(--dim);cursor:pointer;font-size:12px">‹ All stories</div>
     <div id="storyname" style="font-weight:bold;font-size:16px;margin:6px 0 2px;cursor:pointer"></div>
-    <h3>Outline</h3>
+    <h3 style="display:flex;align-items:center">Outline<span id="outlinetoggle" title="Expand / collapse all" style="margin-left:auto;cursor:pointer;padding:0 5px;border-radius:4px">⊞</span></h3>
     <div id="outlinelist"></div>
   </div>
   <div id="tagsection" hidden>
@@ -635,6 +635,14 @@ function renderBacklinks() {
 }
 
 // ---- sidebar outline tree ----
+$('outlinetoggle').onclick = () => {
+  if (!storyTree) return;
+  let anyOpen = false;
+  (function scan(n) { n.children.forEach(c => { if (c._open && c.children.length) anyOpen = true; scan(c); }); })(storyTree);
+  (function set(n) { n.children.forEach(c => { c._open = !anyOpen; set(c); }); })(storyTree);
+  renderOutline();
+};
+
 let lastOutlineFocus = null;
 function renderOutline() {
   const list = $('outlinelist');
@@ -668,6 +676,9 @@ function renderOutline() {
       if (c._open) walk(c, p, indent + 1);
     }
   })(storyTree, [], 0);
+  let anyOpen = false;
+  (function scan(n) { n.children.forEach(c => { if (c._open && c.children.length) anyOpen = true; scan(c); }); })(storyTree);
+  $('outlinetoggle').textContent = anyOpen ? '⊟' : '⊞';
 }
 
 function panelEl(node) {
