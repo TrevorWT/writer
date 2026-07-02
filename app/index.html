@@ -32,7 +32,12 @@ window.addEventListener('unhandledrejection', e => reportErr('async: ' + (e.reas
     --accent:#3568c4; --btn:#e0ddd4; --btnh:#d2cec3; --pop:#ffffff; --hover:#e5e2d9;
     --line:#d5d2c9; --shadow:rgba(0,0,0,.14); --shadow2:rgba(0,0,0,.2);
   }
-  * { box-sizing:border-box; }
+  * { box-sizing:border-box; scrollbar-width:thin; scrollbar-color:var(--btnh) transparent; }
+  ::-webkit-scrollbar { width:10px; height:10px; }
+  ::-webkit-scrollbar-track { background:transparent; }
+  ::-webkit-scrollbar-thumb { background:var(--btn); border-radius:5px; border:2px solid transparent; background-clip:padding-box; }
+  ::-webkit-scrollbar-thumb:hover { background:var(--btnh); border:2px solid transparent; background-clip:padding-box; }
+  ::-webkit-scrollbar-corner { background:transparent; }
   body { margin:0; font-family:Georgia,serif; background:var(--bg); color:var(--text); display:flex; height:100vh; overflow:hidden; }
 
   #sidebar { width:var(--sidew,230px); background:var(--panel); padding:6px 8px; overflow-y:auto; font-family:system-ui,sans-serif; font-size:13px; flex-shrink:0; position:relative; }
