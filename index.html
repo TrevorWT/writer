@@ -25,7 +25,7 @@
   #sidegrip:hover, #sidegrip.dragging { background:var(--accent); }
   .sechead { display:flex; align-items:center; text-transform:uppercase; font-size:11px; font-weight:600; letter-spacing:.07em; color:var(--dim); padding:5px 4px 3px; margin-top:8px; user-select:none; }
   .sechead .secbtns { margin-left:auto; display:flex; gap:2px; }
-  .secbtn { width:20px; height:20px; display:flex; align-items:center; justify-content:center; border-radius:4px; cursor:pointer; color:var(--dim); font-size:13px; visibility:hidden; }
+  .secbtn { width:calc(var(--ui) * 1.55); height:calc(var(--ui) * 1.55); display:flex; align-items:center; justify-content:center; border-radius:4px; cursor:pointer; color:var(--dim); font-size:var(--ui); visibility:hidden; }
   #sidebar:hover .secbtn { visibility:visible; }
   .secbtn:hover { background:var(--btn); color:var(--text); }
   #storylist:empty::before { content:"Open a library folder ↑"; color:var(--ph); font-style:italic; font-size:12px; padding:2px 6px; display:block; }
@@ -43,7 +43,7 @@
   dialog .btns { display:flex; gap:10px; margin-top:16px; }
   dialog .btns button[type=submit] { background:var(--accent); color:#111; margin-left:auto; }
   #ribbon { width:42px; background:var(--panel); border-right:1px solid var(--line); display:flex; flex-direction:column; align-items:center; padding:10px 0; gap:6px; flex-shrink:0; z-index:60; }
-  .ribbtn { width:30px; height:30px; border-radius:6px; display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--dim); font-size:16px; user-select:none; }
+  .ribbtn { width:calc(var(--ui) * 2.3); height:calc(var(--ui) * 2.3); border-radius:6px; display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--dim); font-size:calc(var(--ui) + 3px); user-select:none; }
   .ribbtn:hover { background:var(--hover); color:var(--text); }
   #notesgrip { position:absolute; left:0; top:0; bottom:0; width:6px; cursor:col-resize; }
   #notesgrip:hover, #notesgrip.dragging { background:var(--accent); }
@@ -72,13 +72,14 @@
   #main { flex:1; overflow:hidden; display:flex; flex-direction:column; }
   #crumbs { padding:10px 16px 10px 24px; font-family:system-ui,sans-serif; font-size:13px; color:var(--dim); flex-shrink:0; display:flex; align-items:center; }
   #crumbpath { flex:1; min-width:0; }
-  #modebtn { font-size:13px; padding:5px 12px; flex-shrink:0; }
+  #modebtn { padding:5px 12px; flex-shrink:0; }
   #modebtn.reading { background:var(--accent); color:#111; }
   #crumbs span { cursor:pointer; }
   #crumbs span:hover { color:var(--text); }
   #crumbs .sep { margin:0 6px; cursor:default; }
 
-  :root { --measure:720px; --fsize:17px; --lheight:1.7; }
+  :root { --measure:720px; --fsize:17px; --lheight:1.7; --ui:13px; }
+  button { font-size:var(--ui); }
   #focus { max-width:var(--measure); margin:0 auto; padding:10px 24px 0; width:100%; text-align:center; }
   #focustitle { font-size:2.1em; font-weight:bold; cursor:text; line-height:1.2; }
   #focuskind { font-family:system-ui,sans-serif; font-size:11px; text-transform:uppercase; letter-spacing:.15em; color:var(--dim); margin-bottom:6px; }
@@ -224,6 +225,7 @@
     <label>Column width <span id="v-measure"></span><input type="range" id="s-measure" min="560" max="1400" step="20"></label>
     <label>Text size <span id="v-fsize"></span><input type="range" id="s-fsize" min="14" max="26" step="1"></label>
     <label>Line spacing <span id="v-lheight"></span><input type="range" id="s-lheight" min="1.3" max="2.2" step="0.05"></label>
+    <label>Button size <span id="v-ui"></span><input type="range" id="s-ui" min="10" max="18" step="1"></label>
     <h3>Structure</h3>
     <label>Layer names, smallest to largest (leaves up)
       <input type="text" id="ladderinput" placeholder="Scene, Chapter, Part, Book, Volume">
@@ -895,7 +897,7 @@ function editTitle(node, el) {
 }
 
 // ---- text settings (persisted) ----
-const SETTINGS = { measure: { unit: 'px', def: 720 }, fsize: { unit: 'px', def: 17 }, lheight: { unit: '', def: 1.7 } };
+const SETTINGS = { measure: { unit: 'px', def: 720 }, fsize: { unit: 'px', def: 17 }, lheight: { unit: '', def: 1.7 }, ui: { unit: 'px', def: 13 } };
 const stored = JSON.parse(localStorage.getItem('writer-text') || '{}');
 for (const key in SETTINGS) {
   const s = SETTINGS[key], input = $('s-' + key);
