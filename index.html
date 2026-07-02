@@ -42,6 +42,9 @@
   /* leaf scene = a real writing surface: editor takes the whole height */
   #main.writing #focus { flex:1; min-height:0; display:flex; flex-direction:column; }
   #main.writing #focusbody { flex:1; max-height:none; overflow-y:auto; padding-bottom:20vh; }
+  /* tag pages with backlinks: info sizes to its text so the list sits right below */
+  #main.writing #focus:has(#backlinks:not([hidden])) #focusbody { flex:0 0 auto; padding-bottom:0; }
+  #main.writing #focus:has(#backlinks:not([hidden])) #backlinks { max-height:none; flex:1; }
   #main.writing #panels { flex:0 0 auto; padding:0 30px 8px; }
 
   #textbtn { font-size:13px; padding:5px 10px; flex-shrink:0; margin-left:8px; }
