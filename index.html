@@ -88,6 +88,17 @@
 
   #hint { color:var(--dim); font-family:system-ui,sans-serif; margin:120px auto; text-align:center; line-height:1.8; }
 
+  #notestab { position:fixed; right:0; top:50%; transform:translateY(-50%); writing-mode:vertical-rl; padding:12px 5px; background:#2c2c36; border:1px solid #3c3c4a; border-right:none; border-radius:8px 0 0 8px; cursor:pointer; z-index:40; font-family:system-ui,sans-serif; font-size:12px; color:var(--dim); user-select:none; }
+  #notestab:hover { color:var(--text); }
+  #notestab.has::after { content:"●"; color:var(--accent); font-size:8px; display:block; margin-top:6px; }
+  #notespanel { position:fixed; right:0; top:0; bottom:0; width:340px; background:var(--panel); transform:translateX(100%); transition:transform .15s; z-index:45; display:flex; flex-direction:column; padding:16px; box-shadow:-8px 0 24px rgba(0,0,0,.4); }
+  #notespanel.open { transform:none; }
+  #notespanel .nhead { font-family:system-ui,sans-serif; font-size:13px; color:var(--dim); margin-bottom:10px; display:flex; align-items:center; }
+  #notespanel .nhead b { color:var(--text); margin-left:5px; }
+  #notespanel .nclose { margin-left:auto; cursor:pointer; padding:2px 8px; }
+  #notestext { flex:1; overflow-y:auto; white-space:pre-wrap; font-family:system-ui,sans-serif; font-size:14px; line-height:1.6; color:#cfcdc6; cursor:text; background:var(--bg); border-radius:8px; padding:12px; }
+  #notestext:empty::before { content:"Notes about this section — reminders, research, todos. Never part of the manuscript."; color:#565662; font-style:italic; }
+
   #backlinks { text-align:left; max-height:32vh; overflow-y:auto; margin:2.4em 0 10px; font-family:system-ui,sans-serif; font-size:13px; }
   #backlinks summary { cursor:pointer; color:var(--dim); padding:0 0 6px; user-select:none; }
   #backlinks summary:hover { color:var(--text); }
@@ -140,6 +151,12 @@
   <div id="panels"></div>
   <div id="timeline" hidden><div id="track"></div></div>
   <div id="hint">Open a folder to begin.<br><small>Each story is a folder with a story.md — plain markdown, Obsidian-compatible.<br>Click a panel to open it · scroll down over a panel to dive in, scroll up to back out · [[Name]] to tag.<br>Tagged names auto-link everywhere they appear.</small></div>
+</div>
+
+<div id="notestab" hidden>Notes</div>
+<div id="notespanel">
+  <div class="nhead">Notes<b id="noteslabel"></b><span class="nclose" title="Close">✕</span></div>
+  <div id="notestext" contenteditable="plaintext-only"></div>
 </div>
 
 <script>
@@ -196,7 +213,13 @@ function parse(md, rootTitle) {
       cur.body += (cur.body ? '\n' : '') + line;
     }
   }
-  (function trim(n) { n.body = n.body.trim(); n.children.forEach(trim); })(root);
+  // %%…%% blocks are per-section notes (Obsidian comment syntax) — kept out
+  // of the prose body so word counts and display ignore them
+  (function trim(n) {
+    n.notes = '';
+    n.body = n.body.replace(/%%([\s\S]*?)%%/g, (m, t) => { n.notes += (n.notes ? '\n' : '') + t.trim(); return ''; }).trim();
+    n.children.forEach(trim);
+  })(root);
   // ponytail: single H1 = old-format title wrapper, unwrap it (a story whose only
   // top-level section is one lone part would also unwrap; acceptable for now)
   if (root.children.length === 1 && root.children[0].depth === 1) {
@@ -211,6 +234,7 @@ function serialize(node) {
   let out = '';
   if (node.depth > 0) out += ('#'.repeat(node.depth) + ' ' + node.title).trimEnd() + '\n\n';
   if (node.body) out += node.body + '\n\n';
+  if (node.notes) out += '%%\n' + node.notes + '\n%%\n\n';
   for (const c of node.children) out += serialize(c);
   return out;
 }
@@ -309,7 +333,22 @@ function render() {
   renderTimeline();
   renderOutline();
   renderBacklinks();
+  renderNotes();
 }
+
+// ---- per-section notes popout ----
+function renderNotes() {
+  const f = tree && focus();
+  $('notestab').hidden = !f;
+  if (!f) { $('notespanel').classList.remove('open'); return; }
+  $('notestab').classList.toggle('has', !!f.notes);
+  $('noteslabel').textContent = labelOf(f);
+  $('notestext').textContent = f.notes || '';
+}
+$('notestab').onclick = () => { $('notespanel').classList.add('open'); $('notestext').focus(); };
+document.querySelector('#notespanel .nclose').onclick = () => $('notespanel').classList.remove('open');
+$('notestext').oninput = () => { focus().notes = $('notestext').innerText.trim(); queueSave(); };
+$('notestext').onblur = () => { clearTimeout(saveTimer); save(); $('notestab').classList.toggle('has', !!focus().notes); };
 
 // ---- backlinks on tag pages ----
 function renderBacklinks() {
@@ -446,7 +485,7 @@ function defaultTitle(parent, index) {
   return '';   // untitled — the generated label (Chapter 4, Page 12…) names it
 }
 function addChild(parent, index) {
-  const node = { depth: parent.depth + 1, title: defaultTitle(parent, index), body: '', children: [] };
+  const node = { depth: parent.depth + 1, title: defaultTitle(parent, index), body: '', notes: '', children: [] };
   parent.children.splice(index, 0, node);
   save(); render();
   const el = [...document.querySelectorAll('.panel')].find(p => p._node === node);
@@ -569,6 +608,7 @@ $('main').addEventListener('wheel', e => {
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
   if ($('ctxmenu')) { closeCtx(); return; }
+  if ($('notespanel').classList.contains('open')) { $('notespanel').classList.remove('open'); return; }
   if (tree && path.length > 1 && !e.target.matches('input,textarea,[contenteditable]')) { path.pop(); render(); }
 });
 
@@ -786,6 +826,9 @@ $('newstory').onclick = async () => {
 
 // ponytail: parse/serialize/linkify self-check, runs on load
 (function test() {
+  const nt = parse('# A\n\nprose here\n\n%%\nremember the key\n%%\n', 'S');
+  console.assert(nt.children[0].body === 'prose here' && nt.children[0].notes === 'remember the key', 'notes extraction');
+  console.assert(serialize(nt).includes('%%\nremember the key\n%%'), 'notes round-trip');
   const u = parse('# P\n\n## C\n\n###\n\npage one\n\n###\n\npage two\n', 'S');
   console.assert(u.children[0].children[0].children.length === 2 && u.children[0].children[0].children[0].title === '', 'bare ### headings');
   const t = parse('logline\n\n# A\n\nbody [[Bob]]\n\n## C1\n\n# B\n', 'My Story');
