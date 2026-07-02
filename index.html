@@ -216,6 +216,7 @@
   <div class="ribbtn" id="sidetoggle" title="Toggle sidebar">◧</div>
   <div class="ribbtn" id="searchbtn" title="Search (Ctrl+P)">🔍</div>
   <div style="flex:1"></div>
+  <div class="ribbtn" id="exportbtn" title="Export / compile">📤</div>
   <div class="ribbtn" id="settingsbtn" title="Settings">⚙</div>
 </div>
 <div id="sidebar">
@@ -256,6 +257,37 @@
     </label>
     <div class="btns">
       <button type="submit">Done</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="exportdlg">
+  <form id="exportform">
+    <h2>Export</h2>
+    <label>Scope
+      <select id="ex-scope">
+        <option value="story" selected>Whole story</option>
+        <option value="current">Current section</option>
+      </select>
+    </label>
+    <label>Format
+      <select id="ex-format">
+        <option value="md" selected>Markdown (.md)</option>
+        <option value="html">HTML (.html) — print to PDF from the browser</option>
+      </select>
+    </label>
+    <label>Scene separator
+      <select id="ex-sep">
+        <option value="* * *" selected>* * *</option>
+        <option value="">Blank line</option>
+      </select>
+    </label>
+    <label style="display:flex;align-items:center;gap:8px;color:var(--text)">
+      <input type="checkbox" id="ex-scenetitles" style="width:auto;margin:0">Scene titles as headings
+    </label>
+    <div class="btns">
+      <button type="button" onclick="this.closest('dialog').close()">Cancel</button>
+      <button type="submit">Export</button>
     </div>
   </form>
 </dialog>
@@ -1612,6 +1644,69 @@ $('newstoryform').onsubmit = async e => {
     await save();
     render();
   }
+};
+
+// ---- export / compile ----
+// notes, annotations' notes, and [[brackets]] never reach the manuscript
+function cleanText(s) {
+  return s
+    .replace(/==([^=\n]+)==%%[\s\S]*?%%/g, '$1')
+    .replace(/%%[\s\S]*?%%/g, '')
+    .replace(/\[\[([^\]]+)\]\]/g, '$1')
+    .trim();
+}
+function compileNode(n, base, opts) {
+  const out = [];
+  if (n.depth > base) {   // the export root's own title becomes the document title instead
+    const isLeaf = !n.children.length;
+    if (!isLeaf || opts.sceneTitles) {
+      const title = n.title || (kindMap.get(n) || {}).label || 'Untitled';
+      out.push('#'.repeat(Math.min(6, n.depth - base + 1)) + ' ' + title);
+    }
+  }
+  const body = cleanText(n.body);
+  if (body) out.push(body);
+  let prevLeaf = false;
+  for (const c of n.children) {
+    const isLeaf = !c.children.length;
+    if (isLeaf && prevLeaf && opts.sep) out.push(opts.sep);
+    out.push(...compileNode(c, base, opts));
+    prevLeaf = isLeaf;
+  }
+  return out;
+}
+function mdToHtml(md, title) {
+  const blocks = md.split('\n\n').map(b => {
+    const h = b.match(/^(#{1,6}) (.*)$/s);
+    if (h) return `<h${h[1].length}>${esc(h[2])}</h${h[1].length}>`;
+    if (b.trim() === '* * *') return '<p class="sep">* * *</p>';
+    return b.split(/\n\n+/).map(p => '<p>' + esc(p).replace(/\n/g, '<br>') + '</p>').join('');
+  }).join('\n');
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${esc(title)}</title><style>
+  body{font-family:Georgia,serif;max-width:640px;margin:40px auto;padding:0 20px;line-height:1.7;color:#222}
+  h1,h2,h3,h4{line-height:1.3} .sep{text-align:center;margin:2em 0}
+  em{font-style:italic} @media print{body{margin:0;max-width:none}}
+  </style></head><body><h1>${esc(title)}</h1>\n${blocks.replace(/_([^_\n]+)_/g, '<em>$1</em>')}\n</body></html>`;
+}
+function download(name, text, type) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type }));
+  a.download = name;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+$('exportbtn').onclick = () => { if (storyTree) $('exportdlg').showModal(); };
+$('exportform').onsubmit = e => {
+  e.preventDefault();
+  const scope = $('ex-scope').value;
+  const root = scope === 'current' && !currentTag ? focus() : storyTree;
+  const title = root === storyTree ? storyTree.title : (root.title || labelOf(root));
+  const opts = { sep: $('ex-sep').value, sceneTitles: $('ex-scenetitles').checked };
+  const md = compileNode(root, root.depth, opts).join('\n\n');
+  $('exportdlg').close();
+  const safe = title.replace(/[\\/:*?"<>|]/g, '');
+  if ($('ex-format').value === 'html') download(safe + '.html', mdToHtml(md, title), 'text/html');
+  else download(safe + '.md', `# ${title}\n\n${md}\n`, 'text/markdown');
 };
 
 // ---- settings ----
