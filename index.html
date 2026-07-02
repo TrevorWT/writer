@@ -73,6 +73,10 @@
   #crumbs { padding:10px 16px 10px 24px; font-family:system-ui,sans-serif; font-size:13px; color:var(--dim); flex-shrink:0; display:flex; align-items:center; }
   #crumbpath { flex:1; min-width:0; }
   #topbtns { flex:1; display:flex; justify-content:flex-end; align-items:center; gap:8px; min-width:0; }
+  #histbtns { display:flex; gap:4px; margin-right:10px; flex-shrink:0; }
+  #histbtns button { padding:4px 9px; }
+  button[disabled] { opacity:.35; cursor:default; }
+  button[disabled]:hover { background:var(--btn); }
   #topsearch { position:relative; flex:0 0 clamp(180px, 28vw, 420px); display:flex; align-items:center; gap:6px; background:var(--btn); border:1px solid var(--line); border-radius:6px; padding:4px 10px; color:var(--dim); font-size:12px; cursor:text; }
   #topsearch:hover, #topsearch:focus-within { background:var(--btnh); }
   #modebtn { padding:5px 12px; flex-shrink:0; }
@@ -287,6 +291,7 @@
 </dialog>
 <div id="main">
   <div id="crumbs">
+    <span id="histbtns" hidden><button id="undobtn" title="Undo move/delete (Ctrl+Z)" disabled>↶</button><button id="redobtn" title="Redo (Ctrl+Y)" disabled>↷</button></span>
     <div id="crumbpath"></div>
     <div id="topsearch" hidden title="Search (Ctrl+P)">🔍<input id="searchinput" placeholder="Search story…" autocomplete="off"><div id="searchdrop" hidden><div id="searchresults"></div></div></div>
     <div id="topbtns"><button id="gridbtn" hidden title="Toggle grid view for panels">⊞ grid</button><button id="panelsbtn" hidden title="Show/hide the section panels">▦ panels</button><button id="modebtn" hidden title="Toggle read-only (like Obsidian's reading view)">✏️ editing</button></div>
@@ -553,6 +558,7 @@ function render() {
   $('focus').hidden = !has;
   $('modebtn').hidden = !has;
   $('topsearch').hidden = !has;
+  $('histbtns').hidden = !has || !!currentTag;
   $('panelsbtn').hidden = !has || !focusHasChildren();
   $('crumbpath').innerHTML = '';
   $('panels').innerHTML = '';
@@ -838,6 +844,7 @@ function defaultTitle() {
   return currentTag ? 'New section' : '';   // story sections: the generated label names them
 }
 function addChild(parent, index) {
+  pushUndo();
   const node = { depth: parent.depth + 1, title: defaultTitle(), body: '', notes: '', children: [] };
   parent.children.splice(index, 0, node);
   save(); render();
@@ -846,6 +853,49 @@ function addChild(parent, index) {
 }
 
 // in-place rename: the element itself becomes editable, no box
+// ---- undo/redo for structural changes (moves, deletes, adds) ----
+// text edits use the browser's native undo while the field is focused
+const undoStack = [], redoStack = [];
+function treeSnap() {
+  const idx = [];
+  if (!currentTag) for (let i = 1; i < path.length; i++) idx.push(path[i - 1].children.indexOf(path[i]));
+  return { root: structuredClone(storyTree), idx };
+}
+function pushUndo() {
+  if (currentTag || !storyTree) return;   // ponytail: undo covers the story doc; tag pages rarely restructure
+  undoStack.push(treeSnap());
+  if (undoStack.length > 50) undoStack.shift();
+  redoStack.length = 0;
+  updateHistBtns();
+}
+function applySnap(s) {
+  storyTree = s.root;
+  tree = storyTree;
+  currentTag = null;
+  currentFile = storyFile;
+  path = [storyTree];
+  let node = storyTree;
+  for (const i of s.idx) {
+    node = node.children[i];
+    if (!node) break;
+    path.push(node);
+  }
+  save(); render(); updateHistBtns();
+}
+function undo() { if (undoStack.length) { redoStack.push(treeSnap()); applySnap(undoStack.pop()); } }
+function redo() { if (redoStack.length) { undoStack.push(treeSnap()); applySnap(redoStack.pop()); } }
+function updateHistBtns() {
+  $('undobtn').disabled = !undoStack.length;
+  $('redobtn').disabled = !redoStack.length;
+}
+$('undobtn').onclick = undo;
+$('redobtn').onclick = redo;
+document.addEventListener('keydown', e => {
+  if (!(e.ctrlKey || e.metaKey) || e.target.matches('input,textarea,[contenteditable="true"],[contenteditable="plaintext-only"]')) return;
+  if (e.key.toLowerCase() === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); }
+  else if (e.key.toLowerCase() === 'y') { e.preventDefault(); redo(); }
+});
+
 // ---- drag & drop reordering ----
 let dragNode = null;
 const containsNode = (n, t) => n === t || n.children.some(c => containsNode(c, t));
@@ -862,6 +912,7 @@ function moveNode(node, newParent, index) {
   if (currentTag && storyTree && containsNode(storyTree, node)) return;  // outline drag while a tag page is open would save into the tag file
   const oldParent = findParent(tree, node);
   if (!oldParent) return;
+  pushUndo();
   const oldIdx = oldParent.children.indexOf(node);
   oldParent.children.splice(oldIdx, 1);
   if (oldParent === newParent && oldIdx < index) index--;
@@ -906,6 +957,7 @@ function deleteNode(node) {
     const detail = `${label}${node.children.length ? ` and its ${node.children.length} section${node.children.length > 1 ? 's' : ''}` : ''} — ${wc.toLocaleString()} words`;
     if (prompt(`This permanently deletes ${detail}.\n\nType DELETE to confirm:`) !== 'DELETE') return;
   } else if (!confirm(`Delete ${label}?`)) return;
+  pushUndo();
   (function remove(parent) {
     const i = parent.children.indexOf(node);
     if (i >= 0) { parent.children.splice(i, 1); return true; }
@@ -1520,6 +1572,7 @@ async function openStory(dirHandle, el) {
   storyBackup = text;
   tree = parse(text, dirHandle.name);
   await resolveChapterEmbeds(dirHandle, tree);
+  if (storyTree !== tree) { undoStack.length = 0; redoStack.length = 0; updateHistBtns(); }
   storyTree = tree;
   path = [tree];
   await refreshTags();
