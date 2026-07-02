@@ -118,6 +118,14 @@
   .gap:hover .plus { opacity:1; }
   .gap .plus:hover { background:var(--accent); color:#111; }
   .gap.dragover { background:var(--accent); border-radius:3px; }
+  /* grid view: many small panels, wrap + vertical scroll, for restructuring */
+  #main.grid #panels { flex-wrap:wrap; overflow-y:auto; overflow-x:hidden; justify-content:flex-start; align-content:flex-start; }
+  #main.grid .panel { flex:0 0 180px; min-height:160px; max-height:210px; padding:12px 11px; margin:3px 0; }
+  #main.grid .panel h4 { font-size:.92em; margin:0 0 6px; }
+  #main.grid .panel .preview { font-size:.72em; line-height:1.45; }
+  #main.grid .panel .kind { font-size:9px; margin-bottom:3px; }
+  #main.grid .panel .count { font-size:10px; }
+  #main.grid .gap { width:20px; }
   .panel.dragover { outline:2px dashed var(--accent); outline-offset:-2px; }
   .orow.dragover { box-shadow:inset 0 0 0 1.5px var(--accent); }
 
@@ -251,7 +259,7 @@
   </form>
 </dialog>
 <div id="main">
-  <div id="crumbs"><div id="crumbpath"></div><button id="panelsbtn" hidden title="Show/hide the section panels" style="margin-right:8px">▦ panels</button><button id="modebtn" hidden title="Toggle read-only (like Obsidian's reading view)">✏️ editing</button></div>
+  <div id="crumbs"><div id="crumbpath"></div><button id="gridbtn" hidden title="Toggle grid view for panels" style="margin-right:8px">⊞ grid</button><button id="panelsbtn" hidden title="Show/hide the section panels" style="margin-right:8px">▦ panels</button><button id="modebtn" hidden title="Toggle read-only (like Obsidian's reading view)">✏️ editing</button></div>
   <div id="focus" hidden>
     <div id="focuskind"></div>
     <div id="focustitle"></div>
@@ -526,6 +534,9 @@ function render() {
   $('main').classList.toggle('writing', !f.children.length && (f.depth > 0 || !!currentTag));
   $('main').classList.toggle('hidepanels', panelsHidden && f.children.length > 0);
   $('panelsbtn').textContent = panelsHidden ? '▢ panels' : '▦ panels';
+  $('gridbtn').hidden = !has || !focusHasChildren() || panelsHidden;
+  $('gridbtn').textContent = layout.grid ? '☰ row' : '⊞ grid';
+  $('main').classList.toggle('grid', !!layout.grid);
   const ft = $('focustitle');
   const titleEditable = f.depth > 0 && !readonly;
   ft.contentEditable = titleEditable ? 'plaintext-only' : 'false';
@@ -873,6 +884,7 @@ themeSel.onchange = () => {
 };
 
 $('panelsbtn').onclick = () => { panelsHidden = !panelsHidden; render(); };
+$('gridbtn').onclick = () => { layout.grid = !layout.grid; saveLayout(); render(); };
 
 // ---- layout: collapsible sidebar, drag-resizable sidebar & notes ----
 const layout = JSON.parse(localStorage.getItem('writer-layout') || '{}');
@@ -980,8 +992,8 @@ $('main').addEventListener('wheel', e => {
     }
     return;
   }
-  // plain vertical wheel over the panel row scrolls it horizontally
-  const panels = e.target.closest('#panels');
+  // plain vertical wheel over the panel row scrolls it horizontally (grid scrolls natively)
+  const panels = $('main').classList.contains('grid') ? null : e.target.closest('#panels');
   if (panels && Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
     panels.scrollLeft += e.deltaY;
     e.preventDefault();
