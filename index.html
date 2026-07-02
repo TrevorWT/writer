@@ -169,7 +169,7 @@
   </div>
   <div id="panels"></div>
   <div id="timeline" hidden><div id="track"></div></div>
-  <div id="hint">Open a folder to begin.<br><small>Each story is a folder with a story.md — plain markdown, Obsidian-compatible.<br>Click a panel to open it · scroll down over a panel to dive in, scroll up to back out · [[Name]] to tag.<br>Tagged names auto-link everywhere they appear.</small></div>
+  <div id="hint">Open a folder to begin.<br><small>Each story is a folder with a story.md — plain markdown, Obsidian-compatible.<br>Click a panel to open it · ctrl+scroll up over a panel to dive in, ctrl+scroll down to back out.<br>Tagged names auto-link everywhere they appear.</small></div>
 </div>
 
 <div id="annotpop" hidden>
@@ -696,20 +696,31 @@ function tlPreview(e) {
   label.textContent = labelOf(ent.node);
 }
 
-// ---- scroll to zoom ----
+// ---- scroll: plain wheel scrolls, ctrl+wheel zooms (up = dive in, down = out) ----
 let acc = 0;
 $('main').addEventListener('wheel', e => {
-  if (!tree || e.target.closest('#focusbody')) return;   // let the notes area scroll itself
-  const overPanel = e.target.closest('.panel');
-  if (e.deltaY > 0 && overPanel) {
+  if (!tree) return;
+  if (e.ctrlKey) {
     e.preventDefault();
     acc += e.deltaY;
-    if (acc > 120) { acc = 0; path.push(overPanel._node); render(); }
-  } else if (e.deltaY < 0 && path.length > 1) {
+    if (acc < -80) {
+      acc = 0;
+      const p = e.target.closest('.panel');
+      if (p) { path.push(p._node); render(); }
+    } else if (acc > 80) {
+      acc = 0;
+      if (path.length > 1) { path.pop(); render(); }
+    }
+    return;
+  }
+  // plain vertical wheel over the panel row scrolls it horizontally
+  const panels = e.target.closest('#panels');
+  if (panels && Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+    panels.scrollLeft += e.deltaY;
     e.preventDefault();
-    acc += e.deltaY;
-    if (acc < -120) { acc = 0; path.pop(); render(); }
-  } else acc = 0;
+  } else if (!e.target.closest('#focusbody,#backlinks,#timeline')) {
+    $('focusbody').scrollTop += e.deltaY;   // scroll the text from anywhere on the page
+  }
 }, { passive: false });
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
