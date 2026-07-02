@@ -39,6 +39,11 @@
   dialog label { display:block; margin-bottom:12px; color:var(--dim); font-size:12px; }
   dialog input[type=text], dialog input[type=number], dialog select { display:block; width:100%; margin-top:4px; background:var(--bg); color:var(--text); border:1px solid var(--line); border-radius:6px; padding:7px 9px; font:inherit; font-size:14px; }
   dialog .row { display:flex; gap:10px; }
+  #ex-layers { margin:-6px 0 12px; }
+  #ex-layers .exrow { display:flex; align-items:center; gap:16px; padding:4px 2px; color:var(--text); font-size:13px; }
+  #ex-layers .exrow > span { flex:0 0 90px; }
+  #ex-layers label { display:flex; align-items:center; gap:5px; margin:0; color:var(--text2); font-size:12px; }
+  #ex-layers input { width:auto; margin:0; }
   dialog .row label { flex:1; }
   dialog .btns { display:flex; gap:10px; margin-top:16px; }
   dialog .btns button[type=submit] { background:var(--accent); color:#111; margin-left:auto; }
@@ -282,12 +287,8 @@
         <option value="">Blank line</option>
       </select>
     </label>
-    <label style="display:flex;align-items:center;gap:8px;color:var(--text)">
-      <input type="checkbox" id="ex-scenetitles" style="width:auto;margin:0">Scene titles as headings
-    </label>
-    <label style="display:flex;align-items:center;gap:8px;color:var(--text)">
-      <input type="checkbox" id="ex-chaptertext" style="width:auto;margin:0">Include chapter/part text (epigraphs, quotes)
-    </label>
+    <label>Include per layer</label>
+    <div id="ex-layers"></div>
     <div class="btns">
       <button type="button" onclick="this.closest('dialog').close()">Cancel</button>
       <button type="submit">Export</button>
@@ -1661,16 +1662,14 @@ function cleanText(s) {
 function compileNode(n, base, opts) {
   const out = [];
   if (n.depth > base) {   // the export root's own title becomes the document title instead
-    const isLeaf = !n.children.length;
-    if (!isLeaf || opts.sceneTitles) {
+    const layer = opts.layers[opts.H - n.depth] || { title: true, contents: true };
+    if (layer.title) {
       const title = n.title || (kindMap.get(n) || {}).label || 'Untitled';
       out.push('#'.repeat(Math.min(6, n.depth - base + 1)) + ' ' + title);
     }
+    const body = cleanText(n.body);
+    if (body && layer.contents) out.push(body);
   }
-  // scene prose is the manuscript; chapter/part text is planning notes
-  // unless explicitly included (epigraphs, quotes)
-  const body = cleanText(n.body);
-  if (body && (!n.children.length || opts.containerText)) out.push(body);
   let prevLeaf = false;
   for (const c of n.children) {
     const isLeaf = !c.children.length;
@@ -1700,13 +1699,44 @@ function download(name, text, type) {
   a.click();
   URL.revokeObjectURL(a.href);
 }
-$('exportbtn').onclick = () => { if (storyTree) $('exportdlg').showModal(); };
+$('exportbtn').onclick = () => {
+  if (!storyTree) return;
+  // one row per layer in this story: check what compiles (titles as headings,
+  // contents as text). Defaults: containers = title only, scenes = prose only.
+  const H = treeHeight(storyTree);
+  const box = $('ex-layers');
+  box.innerHTML = '';
+  for (let li = H - 1; li >= 0; li--) {
+    const row = document.createElement('div');
+    row.className = 'exrow';
+    const name = document.createElement('span');
+    name.textContent = LADDER[Math.min(li, LADDER.length - 1)] + 's';
+    row.appendChild(name);
+    for (const [key, label, def] of [['title', 'titles', li > 0], ['contents', 'contents', li === 0]]) {
+      const l = document.createElement('label');
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.id = `ex-l-${key}-${li}`;
+      cb.checked = def;
+      l.append(cb, label);
+      row.appendChild(l);
+    }
+    box.appendChild(row);
+  }
+  $('exportdlg').showModal();
+};
 $('exportform').onsubmit = e => {
   e.preventDefault();
   const scope = $('ex-scope').value;
   const root = scope === 'current' && !currentTag ? focus() : storyTree;
   const title = root === storyTree ? storyTree.title : (root.title || labelOf(root));
-  const opts = { sep: $('ex-sep').value, sceneTitles: $('ex-scenetitles').checked, containerText: $('ex-chaptertext').checked };
+  const H = treeHeight(storyTree);
+  const layers = {};
+  for (let li = H - 1; li >= 0; li--) {
+    const t = $(`ex-l-title-${li}`), c = $(`ex-l-contents-${li}`);
+    if (t) layers[li] = { title: t.checked, contents: c.checked };
+  }
+  const opts = { sep: $('ex-sep').value, H, layers };
   const md = compileNode(root, root.depth, opts).join('\n\n');
   $('exportdlg').close();
   const safe = title.replace(/[\\/:*?"<>|]/g, '');
