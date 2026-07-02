@@ -87,7 +87,8 @@ window.addEventListener('unhandledrejection', e => reportErr('async: ' + (e.reas
   .orow.active { background:var(--btn); box-shadow:inset 2px 0 0 var(--accent); }
   .orow.active > span:last-child { color:var(--accent); }
   .cat { cursor:pointer; user-select:none; }
-  button { background:var(--btn); color:var(--text); border:none; border-radius:5px; padding:6px 10px; cursor:pointer; font-family:system-ui,sans-serif; }
+  button { background:var(--btn); color:var(--text); border:none; border-radius:5px; padding:6px 10px; cursor:pointer; font-family:system-ui,sans-serif; display:inline-flex; align-items:center; justify-content:center; gap:6px; }
+  button svg, .secbtn svg, .ribbtn svg { flex-shrink:0; display:block; }
   button:hover { background:var(--btnh); }
 
   #main { flex:1; overflow:hidden; display:flex; flex-direction:column; }
@@ -111,7 +112,7 @@ window.addEventListener('unhandledrejection', e => reportErr('async: ' + (e.reas
   #focus { max-width:var(--measure); margin:0 auto; padding:10px 24px 0; width:100%; text-align:center; }
   #titlerow { position:relative; }
   #focustitle { font-size:2.1em; font-weight:bold; cursor:text; line-height:1.2; }
-  #upbtn { position:absolute; left:0; top:50%; transform:translateY(-50%); width:42px; height:42px; border-radius:50%; background:var(--btn); border:1px solid var(--line); padding:0; display:flex; align-items:center; justify-content:center; color:var(--text); cursor:pointer; box-shadow:0 2px 8px var(--shadow); }
+  #upbtn { position:absolute; left:0; top:50%; transform:translateY(-50%); width:42px; height:42px; border-radius:10px; background:var(--btn); border:1px solid var(--line); padding:0; display:flex; align-items:center; justify-content:center; color:var(--text); cursor:pointer; box-shadow:0 2px 8px var(--shadow); }
   #upbtn:hover { background:var(--accent); border-color:var(--accent); color:#111; }
   body.light #upbtn:hover { color:#fff; }
   #focuskind { font-family:system-ui,sans-serif; font-size:11px; text-transform:uppercase; letter-spacing:.15em; color:var(--dim); margin-bottom:6px; }
@@ -238,11 +239,10 @@ window.addEventListener('unhandledrejection', e => reportErr('async: ' + (e.reas
 </head>
 <body>
 <div id="ribbon">
-  <div class="ribbtn" id="sidetoggle" title="Toggle sidebar">◧</div>
-  <div class="ribbtn" id="searchbtn" title="Search (Ctrl+P)">🔍</div>
+  <div class="ribbtn" id="sidetoggle" title="Toggle sidebar"></div>
   <div style="flex:1"></div>
-  <div class="ribbtn" id="exportbtn" title="Export / compile">📤</div>
-  <div class="ribbtn" id="settingsbtn" title="Settings">⚙</div>
+  <div class="ribbtn" id="exportbtn" title="Export / compile"></div>
+  <div class="ribbtn" id="settingsbtn" title="Settings"></div>
 </div>
 <div id="sidebar">
   <div id="librarysection">
@@ -347,10 +347,10 @@ window.addEventListener('unhandledrejection', e => reportErr('async: ' + (e.reas
 </dialog>
 <div id="main">
   <div id="crumbs">
-    <span id="histbtns" hidden><button id="undobtn" title="Undo move/delete (Ctrl+Z)" disabled>↶</button><button id="redobtn" title="Redo (Ctrl+Y)" disabled>↷</button></span>
+    <span id="histbtns" hidden><button id="undobtn" title="Undo move/delete (Ctrl+Z)" disabled></button><button id="redobtn" title="Redo (Ctrl+Y)" disabled></button></span>
     <div id="crumbpath"></div>
-    <div id="topsearch" hidden title="Search (Ctrl+P)">🔍<input id="searchinput" placeholder="Search story…" autocomplete="off"><div id="searchdrop" hidden><div id="searchresults"></div></div></div>
-    <div id="topbtns"><button id="gridbtn" hidden title="Toggle grid view for panels">⊞ grid</button><button id="panelsbtn" hidden title="Show/hide the section panels">▦ panels</button><button id="modebtn" hidden title="Toggle read-only (like Obsidian's reading view)">✏️ editing</button></div>
+    <div id="topsearch" hidden title="Search (Ctrl+P)"><span id="tsicon" style="display:flex"></span><input id="searchinput" placeholder="Search story…" autocomplete="off"><div id="searchdrop" hidden><div id="searchresults"></div></div></div>
+    <div id="topbtns"><button id="gridbtn" hidden title="Toggle grid view for panels"></button><button id="panelsbtn" hidden title="Show/hide the section panels"></button><button id="modebtn" hidden title="Toggle read-only (like Obsidian's reading view)"></button></div>
   </div>
   <div id="focus" hidden>
     <div id="focuskind"></div>
@@ -385,6 +385,40 @@ window.addEventListener('unhandledrejection', e => reportErr('async: ' + (e.reas
 import { parse, serialize, treeHeight, chapterFileName, serializeChapter, serializeSkeleton, cleanText, wordCount } from './parser.js';
 import { initFS } from './fs.js';
 const FS = initFS();
+
+// Lucide icon paths (ISC license) — monochrome, stroke = currentColor
+const ICONS = {
+  search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+  gear: '<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>',
+  folder: '<path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/>',
+  plus: '<path d="M5 12h14"/><path d="M12 5v14"/>',
+  upload: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/>',
+  sidebar: '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/>',
+  pencil: '<path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/>',
+  book: '<path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/>',
+  grid: '<rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/>',
+  rows: '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M21 9H3"/><path d="M21 15H3"/>',
+  columns: '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="M15 3v18"/>',
+  square: '<rect width="18" height="18" x="3" y="3" rx="2"/>',
+  undo: '<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11"/>',
+  redo: '<path d="m15 14 5-5-5-5"/><path d="M20 9H9.5A5.5 5.5 0 0 0 4 14.5A5.5 5.5 0 0 0 9.5 20H13"/>',
+  expand: '<path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/>',
+  collapse: '<path d="m7 20 5-5 5 5"/><path d="m7 4 5 5 5-5"/>',
+};
+const icon = (name, size = 15) =>
+  `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS[name]}</svg>`;
+
+// static chrome icons
+document.getElementById('sidetoggle').innerHTML = icon('sidebar', 18);
+document.getElementById('settingsbtn').innerHTML = icon('gear', 17);
+document.getElementById('exportbtn').innerHTML = icon('upload', 17);
+document.getElementById('tsicon').innerHTML = icon('search', 13);
+document.getElementById('openbtn').innerHTML = icon('folder', 14);
+document.getElementById('newstory').innerHTML = icon('plus', 14);
+document.getElementById('newtag').innerHTML = icon('plus', 14);
+document.getElementById('undobtn').innerHTML = icon('undo', 14);
+document.getElementById('redobtn').innerHTML = icon('redo', 14);
+document.getElementById('modebtn').innerHTML = icon('pencil', 13) + ' editing';
 
 const KIND = ['Story', 'Part', 'Chapter', 'Scene', 'Page', 'Section', 'Section'];
 let libPath = null, storyPath = null, storyName = '', storyTree = null;
@@ -554,9 +588,9 @@ function render() {
   $('focuskind').textContent = kindLabel + (wc && !currentTag ? ` · ${wc.toLocaleString()} words` : '');
   $('main').classList.toggle('writing', !f.children.length && (f.depth > 0 || !!currentTag));
   $('main').classList.toggle('hidepanels', panelsHidden && f.children.length > 0);
-  $('panelsbtn').textContent = panelsHidden ? '▢ panels' : '▦ panels';
+  $('panelsbtn').innerHTML = (panelsHidden ? icon('square', 13) : icon('columns', 13)) + ' panels';
   $('gridbtn').hidden = !has || !focusHasChildren() || panelsHidden;
-  $('gridbtn').textContent = layout.grid ? '☰ row' : '⊞ grid';
+  $('gridbtn').innerHTML = layout.grid ? icon('rows', 13) + ' row' : icon('grid', 13) + ' grid';
   $('main').classList.toggle('grid', !!layout.grid);
   const ft = $('focustitle');
   const titleEditable = f.depth > 0 && !readonly;
@@ -733,7 +767,7 @@ function renderOutline() {
   })(storyTree, [], 0);
   let anyOpen = false;
   (function scan(n) { n.children.forEach(c => { if (c._open && c.children.length) anyOpen = true; scan(c); }); })(storyTree);
-  $('outlinetoggle').textContent = anyOpen ? '⊟' : '⊞';
+  $('outlinetoggle').innerHTML = anyOpen ? icon('collapse', 13) : icon('expand', 13);
 }
 
 function panelEl(node) {
@@ -978,7 +1012,6 @@ function applyLayout() {
   if (layout.sidew) document.documentElement.style.setProperty('--sidew', layout.sidew + 'px');
   if (layout.notesw) document.documentElement.style.setProperty('--notesw', layout.notesw + 'px');
   document.body.classList.toggle('sidecollapsed', !!layout.sidecollapsed);
-  $('sidetoggle').textContent = layout.sidecollapsed ? '◨' : '◧';
 }
 applyLayout();
 function saveLayout() { localStorage.setItem('writer-layout', JSON.stringify(layout)); applyLayout(); }
@@ -999,7 +1032,7 @@ makeGrip($('notesgrip'), ev => innerWidth - ev.clientX, 'notesw', 260, Math.roun
 $('modebtn').onclick = () => {
   readonly = !readonly;
   const b = $('modebtn');
-  b.textContent = readonly ? '📖 reading' : '✏️ editing';
+  b.innerHTML = readonly ? icon('book', 13) + ' reading' : icon('pencil', 13) + ' editing';
   b.classList.toggle('reading', readonly);
   render();
 };
@@ -1168,7 +1201,6 @@ function doSearch(q) {
     box.appendChild(row);
   });
 }
-$('searchbtn').onclick = openSearch;
 $('searchinput').onfocus = openSearch;
 $('searchinput').onblur = () => { $('searchdrop').hidden = true; };
 $('searchinput').oninput = () => doSearch($('searchinput').value);
