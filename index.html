@@ -8,7 +8,14 @@
   * { box-sizing:border-box; }
   body { margin:0; font-family:Georgia,serif; background:var(--bg); color:var(--text); display:flex; height:100vh; overflow:hidden; }
 
-  #sidebar { width:230px; background:var(--panel); padding:12px; overflow-y:auto; font-family:system-ui,sans-serif; font-size:14px; flex-shrink:0; }
+  #sidebar { width:var(--sidew,230px); background:var(--panel); padding:12px; overflow-y:auto; font-family:system-ui,sans-serif; font-size:14px; flex-shrink:0; position:relative; }
+  body.sidecollapsed #sidebar, body.sidecollapsed #sidegrip { display:none; }
+  #sidegrip { width:5px; cursor:col-resize; flex-shrink:0; background:transparent; }
+  #sidegrip:hover, #sidegrip.dragging { background:var(--accent); }
+  #sidetoggle { position:fixed; left:0; bottom:14px; z-index:60; background:var(--panel); border:1px solid #3c3c4a; border-left:none; border-radius:0 6px 6px 0; padding:8px 5px; cursor:pointer; color:var(--dim); font-family:system-ui,sans-serif; font-size:12px; user-select:none; }
+  #sidetoggle:hover { color:var(--text); }
+  #notesgrip { position:absolute; left:0; top:0; bottom:0; width:6px; cursor:col-resize; }
+  #notesgrip:hover, #notesgrip.dragging { background:var(--accent); }
   #sidebar h3 { margin:16px 0 8px; font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:var(--dim); }
   #sidebar .story { padding:6px 8px; border-radius:5px; cursor:pointer; }
   #sidebar .story:hover, #sidebar .story.active { background:#3a3a46; }
@@ -65,6 +72,9 @@
   .panel:hover { transform:translateY(-4px); background:var(--paper2); }
   .panel h4 { margin:0 0 14px; text-align:center; font-size:1.35em; font-weight:bold; min-height:1.2em; }
   .panel h4:empty::before { content:"untitled"; color:#565662; font-style:italic; font-weight:normal; }
+  .panel .pdel { position:absolute; top:8px; right:10px; color:var(--dim); cursor:pointer; font-size:13px; font-family:system-ui,sans-serif; visibility:hidden; z-index:2; padding:2px 5px; border-radius:4px; }
+  .panel:hover .pdel { visibility:visible; }
+  .panel .pdel:hover { background:#4a3038; color:#f0a0a8; }
   .panel .kind { text-align:center; font-family:system-ui,sans-serif; font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--dim); margin-bottom:6px; }
   .panel .preview { font-size:1em; line-height:1.65; color:#b9b7b0; white-space:pre-wrap; flex:1; overflow:hidden; }
   .panel .fade { position:absolute; bottom:0; left:0; right:0; height:46px; background:linear-gradient(transparent, var(--paper)); pointer-events:none; }
@@ -92,7 +102,7 @@
   #notestab { position:fixed; right:0; top:50%; transform:translateY(-50%); writing-mode:vertical-rl; padding:12px 5px; background:#2c2c36; border:1px solid #3c3c4a; border-right:none; border-radius:8px 0 0 8px; cursor:pointer; z-index:40; font-family:system-ui,sans-serif; font-size:12px; color:var(--dim); user-select:none; }
   #notestab:hover { color:var(--text); }
   #notestab.has::after { content:"●"; color:var(--accent); font-size:8px; display:block; margin-top:6px; }
-  #notespanel { position:fixed; right:0; top:0; bottom:0; width:340px; background:var(--panel); transform:translateX(100%); transition:transform .15s; z-index:45; display:flex; flex-direction:column; padding:16px; box-shadow:-8px 0 24px rgba(0,0,0,.4); }
+  #notespanel { position:fixed; right:0; top:0; bottom:0; width:var(--notesw,340px); background:var(--panel); transform:translateX(100%); transition:transform .15s; z-index:45; display:flex; flex-direction:column; padding:16px; box-shadow:-8px 0 24px rgba(0,0,0,.4); }
   #notespanel.open { transform:none; }
   #notespanel .nhead { font-family:system-ui,sans-serif; font-size:13px; color:var(--dim); margin-bottom:10px; display:flex; align-items:center; }
   #notespanel .nhead b { color:var(--text); margin-left:5px; }
@@ -136,6 +146,8 @@
     <button id="newtag" style="margin-top:8px">+ New tag</button>
   </div>
 </div>
+<div id="sidegrip" title="Drag to resize"></div>
+<div id="sidetoggle" title="Show/hide sidebar">◧</div>
 <div id="main">
   <div id="crumbs"><div id="crumbpath"></div><button id="panelsbtn" hidden title="Show/hide the section panels" style="margin-right:8px">▦ panels</button><button id="modebtn" hidden title="Toggle read-only (like Obsidian's reading view)">✏️ editing</button><button id="textbtn" hidden title="Text settings">Aa</button></div>
   <div id="textpop" hidden>
@@ -156,6 +168,7 @@
 
 <div id="notestab" hidden>Notes</div>
 <div id="notespanel">
+  <div id="notesgrip" title="Drag to resize"></div>
   <div class="nhead">Notes<b id="noteslabel"></b><span class="nclose" title="Close">✕</span></div>
   <div id="notestext" contenteditable="plaintext-only"></div>
 </div>
@@ -163,7 +176,7 @@
 <script>
 const KIND = ['Story', 'Part', 'Chapter', 'Scene', 'Page', 'Section', 'Section'];
 let libDir = null, storyDir = null, storyFile = null, storyTree = null;
-const closedCats = new Set();
+const openCats = new Set();   // categories are collapsed unless opened
 let currentFile = null;    // the file the main view is editing (story.md or a tag page)
 let currentTag = null;     // {cat, name} when viewing a tag page, else null
 let tree = null, path = [];
@@ -375,7 +388,6 @@ function renderBacklinks() {
 
   bl.hidden = false;
   const det = document.createElement('details');
-  det.open = true;
   const sum = document.createElement('summary');
   sum.textContent = `Appears in ${hits.length} place${hits.length > 1 ? 's' : ''} in ${storyDir.name}`;
   det.appendChild(sum);
@@ -441,6 +453,12 @@ function panelEl(node) {
     k.textContent = info.label;
     el.appendChild(k);
   }
+  const del = document.createElement('span');
+  del.className = 'pdel';
+  del.textContent = '✕';
+  del.title = 'Delete';
+  del.onclick = e => { e.stopPropagation(); deleteNode(node); };
+  el.appendChild(del);
   const h = document.createElement('h4');
   h.textContent = node.title;
   h.ondblclick = e => { e.stopPropagation(); editTitle(node, h); };
@@ -499,6 +517,23 @@ function addChild(parent, index) {
 }
 
 // in-place rename: the element itself becomes editable, no box
+// deletion: trivial sections get a confirm; anything substantial requires
+// typing DELETE so a stray click can't erase real writing
+function deleteNode(node) {
+  const wc = wordCount(node);
+  const label = labelOf(node);
+  if (wc >= 100 || node.children.length) {
+    const detail = `${label}${node.children.length ? ` and its ${node.children.length} section${node.children.length > 1 ? 's' : ''}` : ''} — ${wc.toLocaleString()} words`;
+    if (prompt(`This permanently deletes ${detail}.\n\nType DELETE to confirm:`) !== 'DELETE') return;
+  } else if (!confirm(`Delete ${label}?`)) return;
+  (function remove(parent) {
+    const i = parent.children.indexOf(node);
+    if (i >= 0) { parent.children.splice(i, 1); return true; }
+    return parent.children.some(remove);
+  })(tree);
+  save(); render();
+}
+
 function editTitle(node, el) {
   if (readonly) return;
   el.contentEditable = 'plaintext-only';
@@ -532,6 +567,30 @@ document.addEventListener('mousedown', e => {
 });
 
 $('panelsbtn').onclick = () => { panelsHidden = !panelsHidden; render(); };
+
+// ---- layout: collapsible sidebar, drag-resizable sidebar & notes ----
+const layout = JSON.parse(localStorage.getItem('writer-layout') || '{}');
+function applyLayout() {
+  if (layout.sidew) document.documentElement.style.setProperty('--sidew', layout.sidew + 'px');
+  if (layout.notesw) document.documentElement.style.setProperty('--notesw', layout.notesw + 'px');
+  document.body.classList.toggle('sidecollapsed', !!layout.sidecollapsed);
+  $('sidetoggle').textContent = layout.sidecollapsed ? '◨' : '◧';
+}
+applyLayout();
+function saveLayout() { localStorage.setItem('writer-layout', JSON.stringify(layout)); applyLayout(); }
+$('sidetoggle').onclick = () => { layout.sidecollapsed = !layout.sidecollapsed; saveLayout(); };
+
+function makeGrip(grip, compute, key, min, max) {
+  grip.onpointerdown = e => {
+    e.preventDefault();
+    grip.setPointerCapture(e.pointerId);
+    grip.classList.add('dragging');
+    grip.onpointermove = ev => { layout[key] = Math.min(max, Math.max(min, compute(ev))); saveLayout(); };
+    grip.onpointerup = () => { grip.onpointermove = null; grip.classList.remove('dragging'); };
+  };
+}
+makeGrip($('sidegrip'), ev => ev.clientX, 'sidew', 160, 480);
+makeGrip($('notesgrip'), ev => innerWidth - ev.clientX, 'notesw', 260, 640);
 
 $('modebtn').onclick = () => {
   readonly = !readonly;
@@ -657,11 +716,11 @@ async function refreshTags() {
     head.className = 'cat';
     const arrow = document.createElement('span');
     arrow.className = 'arrow';
-    arrow.textContent = closedCats.has(cat) ? '▸' : '▾';
+    arrow.textContent = openCats.has(cat) ? '▾' : '▸';
     const catName = document.createElement('span');
     catName.textContent = cat;
     head.append(arrow, catName);
-    head.onclick = () => { closedCats.has(cat) ? closedCats.delete(cat) : closedCats.add(cat); refreshTags(); };
+    head.onclick = () => { openCats.has(cat) ? openCats.delete(cat) : openCats.add(cat); refreshTags(); };
     const tbtn = document.createElement('span');
     tbtn.className = 'tbtn';
     tbtn.textContent = 'template';
@@ -669,7 +728,7 @@ async function refreshTags() {
     tbtn.onclick = e => { e.stopPropagation(); openTemplate(cat); };
     head.appendChild(tbtn);
     list.appendChild(head);
-    if (closedCats.has(cat)) continue;
+    if (!openCats.has(cat)) continue;
     for (const name of names) {
       const div = document.createElement('div');
       div.className = 'tag' + (currentTag && currentTag.name === name ? ' active' : '');
