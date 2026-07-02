@@ -285,6 +285,9 @@
     <label style="display:flex;align-items:center;gap:8px;color:var(--text)">
       <input type="checkbox" id="ex-scenetitles" style="width:auto;margin:0">Scene titles as headings
     </label>
+    <label style="display:flex;align-items:center;gap:8px;color:var(--text)">
+      <input type="checkbox" id="ex-chaptertext" style="width:auto;margin:0">Include chapter/part text (epigraphs, quotes)
+    </label>
     <div class="btns">
       <button type="button" onclick="this.closest('dialog').close()">Cancel</button>
       <button type="submit">Export</button>
@@ -1664,8 +1667,10 @@ function compileNode(n, base, opts) {
       out.push('#'.repeat(Math.min(6, n.depth - base + 1)) + ' ' + title);
     }
   }
+  // scene prose is the manuscript; chapter/part text is planning notes
+  // unless explicitly included (epigraphs, quotes)
   const body = cleanText(n.body);
-  if (body) out.push(body);
+  if (body && (!n.children.length || opts.containerText)) out.push(body);
   let prevLeaf = false;
   for (const c of n.children) {
     const isLeaf = !c.children.length;
@@ -1701,7 +1706,7 @@ $('exportform').onsubmit = e => {
   const scope = $('ex-scope').value;
   const root = scope === 'current' && !currentTag ? focus() : storyTree;
   const title = root === storyTree ? storyTree.title : (root.title || labelOf(root));
-  const opts = { sep: $('ex-sep').value, sceneTitles: $('ex-scenetitles').checked };
+  const opts = { sep: $('ex-sep').value, sceneTitles: $('ex-scenetitles').checked, containerText: $('ex-chaptertext').checked };
   const md = compileNode(root, root.depth, opts).join('\n\n');
   $('exportdlg').close();
   const safe = title.replace(/[\\/:*?"<>|]/g, '');
