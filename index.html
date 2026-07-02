@@ -21,7 +21,10 @@
   button:hover { background:#4a4a58; }
 
   #main { flex:1; overflow:hidden; display:flex; flex-direction:column; }
-  #crumbs { padding:14px 24px; font-family:system-ui,sans-serif; font-size:13px; color:var(--dim); flex-shrink:0; }
+  #crumbs { padding:10px 16px 10px 24px; font-family:system-ui,sans-serif; font-size:13px; color:var(--dim); flex-shrink:0; display:flex; align-items:center; }
+  #crumbpath { flex:1; min-width:0; }
+  #modebtn { font-size:13px; padding:5px 12px; flex-shrink:0; }
+  #modebtn.reading { background:var(--accent); color:#111; }
   #crumbs span { cursor:pointer; }
   #crumbs span:hover { color:var(--text); }
   #crumbs .sep { margin:0 6px; cursor:default; }
@@ -31,8 +34,9 @@
   #focuskind { font-family:system-ui,sans-serif; font-size:11px; text-transform:uppercase; letter-spacing:.15em; color:var(--dim); margin-bottom:6px; }
   #focusbody { text-align:left; white-space:pre-wrap; line-height:1.7; margin:14px 0 6px; cursor:text; min-height:1.5em; max-height:20vh; overflow-y:auto; color:#cfcdc6; }
   #focusbody:empty::before { content:"click to write…"; color:#565662; font-style:italic; }
-  input.titleedit { font:inherit; text-align:center; background:var(--paper); color:var(--text); border:1px solid #555; border-radius:6px; padding:2px 8px; width:90%; }
-  textarea.bodyedit { width:100%; background:var(--paper); color:var(--text); border:1px solid #555; border-radius:6px; font:inherit; line-height:1.7; padding:10px; resize:vertical; }
+  [contenteditable] { outline:none; }
+  [contenteditable]:empty::before { color:#565662; font-style:italic; }
+  #focustitle[contenteditable]:empty::before { content:"untitled"; }
 
   a.entity { color:var(--accent); cursor:pointer; text-decoration:none; border-bottom:1px dotted var(--accent); }
 
@@ -45,7 +49,6 @@
   .panel .fade { position:absolute; bottom:0; left:0; right:0; height:46px; background:linear-gradient(transparent, var(--paper)); pointer-events:none; }
   .panel:hover .fade { background:linear-gradient(transparent, var(--paper2)); }
   .panel .count { position:absolute; bottom:6px; right:10px; font-family:system-ui,sans-serif; font-size:11px; color:var(--dim); z-index:1; }
-  .panel input { font:inherit; font-weight:bold; text-align:center; width:100%; background:var(--bg); color:var(--text); border:1px solid #555; border-radius:5px; }
 
   .gap { width:42px; align-self:stretch; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
   .gap .plus { opacity:0; width:26px; height:26px; border-radius:50%; background:#3a3a46; color:var(--text); font-size:18px; line-height:24px; text-align:center; cursor:pointer; transition:opacity .12s; user-select:none; }
@@ -85,7 +88,7 @@
   </div>
 </div>
 <div id="main">
-  <div id="crumbs"></div>
+  <div id="crumbs"><div id="crumbpath"></div><button id="modebtn" hidden title="Toggle read-only (like Obsidian's reading view)">✏️ editing</button></div>
   <div id="focus" hidden>
     <div id="focuskind"></div>
     <div id="focustitle"></div>
@@ -102,6 +105,7 @@ let libDir = null, storyDir = null, storyFile = null;
 let currentFile = null;    // the file the main view is editing (story.md or a tag page)
 let currentTag = null;     // {cat, name} when viewing a tag page, else null
 let tree = null, path = [];
+let readonly = false;
 let tagIndex = new Map();  // name -> category
 
 const $ = id => document.getElementById(id);
@@ -147,6 +151,8 @@ async function save() {
   await w.write(serialize(tree));
   await w.close();
 }
+let saveTimer = null;
+function queueSave() { clearTimeout(saveTimer); saveTimer = setTimeout(save, 600); }
 
 // ---- rendering ----
 function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
@@ -170,39 +176,52 @@ function render() {
   const has = !!tree;
   $('hint').hidden = has;
   $('focus').hidden = !has;
-  $('crumbs').innerHTML = '';
+  $('modebtn').hidden = !has;
+  $('crumbpath').innerHTML = '';
   $('panels').innerHTML = '';
   if (!has) { $('timeline').hidden = true; return; }
 
   // breadcrumbs (tag pages get the story as their first crumb)
+  const crumbs = $('crumbpath');
   if (currentTag) {
     const c = document.createElement('span');
     c.textContent = storyDir.name;
     c.onclick = () => openStory(storyDir);
-    $('crumbs').appendChild(c);
+    crumbs.appendChild(c);
     const s = document.createElement('span'); s.className = 'sep'; s.textContent = '›';
-    $('crumbs').appendChild(s);
+    crumbs.appendChild(s);
   }
   path.forEach((n, i) => {
-    if (i) { const s = document.createElement('span'); s.className = 'sep'; s.textContent = '›'; $('crumbs').appendChild(s); }
+    if (i) { const s = document.createElement('span'); s.className = 'sep'; s.textContent = '›'; crumbs.appendChild(s); }
     const c = document.createElement('span');
     c.textContent = n.title || '(untitled)';
     c.onclick = () => { path = path.slice(0, i + 1); render(); };
-    $('crumbs').appendChild(c);
+    crumbs.appendChild(c);
   });
 
   const f = focus();
   $('focuskind').textContent = kindName(f.depth);
   const ft = $('focustitle');
-  ft.textContent = f.title || '(untitled)';
-  ft.onclick = f.depth === 0 ? null : () => editTitle(f, ft);
-  ft.style.cursor = f.depth === 0 ? 'default' : 'text';
+  const titleEditable = f.depth > 0 && !readonly;
+  ft.contentEditable = titleEditable ? 'plaintext-only' : 'false';
+  ft.textContent = f.title;
+  ft.style.cursor = titleEditable ? 'text' : 'default';
+  ft.onblur = titleEditable ? () => { f.title = ft.innerText.trim() || f.title; save(); render(); } : null;
+  ft.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); ft.blur(); } };
+
   const fb = $('focusbody');
-  fb.innerHTML = linkify(f.body);
-  fb.onclick = e => {
-    if (e.target.classList.contains('entity')) { openTagByName(e.target.dataset.name); return; }
-    editBody(f, fb);
-  };
+  if (readonly) {
+    fb.contentEditable = 'false';
+    fb.innerHTML = linkify(f.body);
+    fb.onclick = e => { if (e.target.classList.contains('entity')) openTagByName(e.target.dataset.name); };
+    fb.oninput = fb.onblur = null;
+  } else {
+    fb.contentEditable = 'plaintext-only';
+    fb.textContent = f.body;
+    fb.onclick = null;
+    fb.oninput = () => { f.body = fb.innerText.replace(/\n+$/, ''); queueSave(); };
+    fb.onblur = () => { clearTimeout(saveTimer); save(); };
+  }
 
   const wrap = $('panels');
   wrap.appendChild(gapEl(f, 0));
@@ -234,7 +253,7 @@ function panelEl(node) {
   }
   el.onclick = e => {
     if (e.target.classList.contains('entity')) { openTagByName(e.target.dataset.name); return; }
-    if (e.target.tagName === 'INPUT') return;
+    if (e.target.isContentEditable) return;
     path.push(node); render();
   };
   el._node = node;
@@ -265,26 +284,24 @@ function addChild(parent, index) {
   if (el) editTitle(node, el.querySelector('h4'));
 }
 
+// in-place rename: the element itself becomes editable, no box
 function editTitle(node, el) {
-  const input = document.createElement('input');
-  input.className = el.id === 'focustitle' ? 'titleedit' : '';
-  input.value = node.title;
-  el.textContent = '';
-  el.appendChild(input);
-  input.focus(); input.select();
-  input.onblur = () => { node.title = input.value.trim() || node.title; save(); render(); };
-  input.onkeydown = e => { if (e.key === 'Enter') input.blur(); e.stopPropagation(); };
-  input.onclick = e => e.stopPropagation();
+  if (readonly) return;
+  el.contentEditable = 'plaintext-only';
+  el.focus();
+  document.getSelection().selectAllChildren(el);
+  el.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); el.blur(); } e.stopPropagation(); };
+  el.onclick = e => e.stopPropagation();
+  el.onblur = () => { node.title = el.innerText.trim() || node.title; save(); render(); };
 }
-function editBody(node, div) {
-  const ta = document.createElement('textarea');
-  ta.className = 'bodyedit';
-  ta.value = node.body;
-  ta.rows = Math.max(6, node.body.split('\n').length + 2);
-  div.replaceWith(ta);
-  ta.focus();
-  ta.onblur = () => { node.body = ta.value.trim(); save(); render(); };
-}
+
+$('modebtn').onclick = () => {
+  readonly = !readonly;
+  const b = $('modebtn');
+  b.textContent = readonly ? '📖 reading' : '✏️ editing';
+  b.classList.toggle('reading', readonly);
+  render();
+};
 
 // ---- timeline slider ----
 let flat = [];
@@ -346,7 +363,7 @@ function tlPreview(e) {
 // ---- scroll to zoom ----
 let acc = 0;
 $('main').addEventListener('wheel', e => {
-  if (!tree) return;
+  if (!tree || e.target.closest('#focusbody')) return;   // let the notes area scroll itself
   const overPanel = e.target.closest('.panel');
   if (e.deltaY > 0 && overPanel) {
     e.preventDefault();
@@ -359,7 +376,7 @@ $('main').addEventListener('wheel', e => {
   } else acc = 0;
 }, { passive: false });
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape' && tree && path.length > 1 && !e.target.matches('input,textarea')) { path.pop(); render(); }
+  if (e.key === 'Escape' && tree && path.length > 1 && !e.target.matches('input,textarea,[contenteditable]')) { path.pop(); render(); }
 });
 
 // ---- tags ----
