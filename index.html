@@ -119,6 +119,12 @@
   .blrow .snippet { color:var(--dim); margin-top:2px; }
   .blrow .snippet b { color:var(--text); font-weight:600; }
 
+  mark.annot { background:rgba(232,192,125,.22); color:inherit; border-bottom:1px dashed #e8c07d; cursor:pointer; border-radius:2px; }
+  mark.annot:hover { background:rgba(232,192,125,.38); }
+  #annotpop { position:fixed; z-index:80; background:#2c2c36; border:1px solid #4a4a58; border-radius:8px; padding:12px; width:320px; box-shadow:0 8px 24px rgba(0,0,0,.5); }
+  #annotpop textarea { width:100%; background:var(--bg); color:var(--text); border:1px solid #444; border-radius:6px; padding:8px; font-family:system-ui,sans-serif; font-size:13px; line-height:1.5; resize:vertical; }
+  #annotdel:hover { background:#4a3038; color:#f0a0a8; }
+
   #ctxmenu { position:fixed; background:#2c2c36; border:1px solid #4a4a58; border-radius:8px; font-family:system-ui,sans-serif; font-size:13px; z-index:99; box-shadow:0 8px 24px rgba(0,0,0,.5); padding:4px; min-width:180px; }
   #ctxmenu .head { padding:6px 12px 4px; color:var(--dim); font-size:11px; text-transform:uppercase; letter-spacing:.06em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:240px; }
   #ctxmenu .item { padding:7px 12px; border-radius:5px; cursor:pointer; text-transform:capitalize; }
@@ -166,6 +172,13 @@
   <div id="hint">Open a folder to begin.<br><small>Each story is a folder with a story.md — plain markdown, Obsidian-compatible.<br>Click a panel to open it · scroll down over a panel to dive in, scroll up to back out · [[Name]] to tag.<br>Tagged names auto-link everywhere they appear.</small></div>
 </div>
 
+<div id="annotpop" hidden>
+  <textarea id="annottext" rows="4" placeholder="Note about this text…"></textarea>
+  <div style="display:flex;margin-top:8px">
+    <button id="annotdel">Remove note</button>
+    <button id="annotdone" style="margin-left:auto">Done</button>
+  </div>
+</div>
 <div id="notestab" hidden>Notes</div>
 <div id="notespanel">
   <div id="notesgrip" title="Drag to resize"></div>
@@ -205,7 +218,7 @@ function computeKinds() {
 }
 const labelOf = n => n.title || (kindMap.get(n) || {}).label || '(untitled)';
 function wordCount(n) {
-  let w = n.body ? n.body.split(/\s+/).filter(Boolean).length : 0;
+  let w = n.body ? n.body.replace(/%%[\s\S]*?%%/g, '').split(/\s+/).filter(Boolean).length : 0;
   for (const c of n.children) w += wordCount(c);
   return w;
 }
@@ -228,10 +241,15 @@ function parse(md, rootTitle) {
     }
   }
   // %%…%% blocks are per-section notes (Obsidian comment syntax) — kept out
-  // of the prose body so word counts and display ignore them
+  // of the prose body so word counts and display ignore them. Inline
+  // annotations (==text==%%note%%) stay in the body and are protected here.
   (function trim(n) {
     n.notes = '';
-    n.body = n.body.replace(/%%([\s\S]*?)%%/g, (m, t) => { n.notes += (n.notes ? '\n' : '') + t.trim(); return ''; }).trim();
+    n.body = n.body
+      .replace(/==[^=\n]+==%%[\s\S]*?%%/g, m => m.replace(/%%/g, '\x00'))
+      .replace(/%%([\s\S]*?)%%/g, (m, t) => { n.notes += (n.notes ? '\n' : '') + t.trim(); return ''; })
+      .replace(/\x00/g, '%%')
+      .trim();
     n.children.forEach(trim);
   })(root);
   // ponytail: single H1 = old-format title wrapper, unwrap it (a story whose only
@@ -267,16 +285,34 @@ function anchor(name) { return `<a class="entity" data-name="${name}">${name}</a
 // edit=true keeps unknown [[names]] as literal text so the editable div's
 // innerText round-trips to valid markdown (known tags need no brackets at all)
 function linkify(s, edit) {
-  let html = esc(s).replace(/\[\[([^\]]+)\]\]/g, (m, n) => (edit && !tagIndex.has(n)) ? m : anchor(n));
+  let html = esc(s)
+    .replace(/==([^=\n]+)==%%([\s\S]*?)%%/g, (m, t, note) =>
+      `<mark class="annot" data-note="${note.replace(/"/g, '&quot;')}">${t}</mark>`)
+    .replace(/\[\[([^\]]+)\]\]/g, (m, n) => (edit && !tagIndex.has(n)) ? m : anchor(n));
   const names = [...tagIndex.keys()].sort((a, b) => b.length - a.length);
   if (names.length) {
     const re = new RegExp('\\b(' + names.map(escRe).join('|') + ')\\b', 'g');
-    // only auto-link outside existing anchors
-    html = html.split(/(<a[^>]*>[^<]*<\/a>)/g)
+    // only auto-link outside existing anchors and annotations
+    html = html.split(/(<a[^>]*>[^<]*<\/a>|<mark[^>]*>[^<]*<\/mark>)/g)
       .map((seg, i) => i % 2 ? seg : seg.replace(re, m => anchor(m)))
       .join('');
   }
   return html;
+}
+// editable-DOM -> markdown source (anchors flow as plain text, annotations
+// reconstruct their ==text==%%note%% form, divs/brs become newlines)
+function domToMd(root) {
+  let out = '';
+  (function walk(n) {
+    for (const c of n.childNodes) {
+      if (c.nodeType === 3) out += c.textContent;
+      else if (c.tagName === 'BR') { if (c.parentNode.childNodes.length > 1) out += '\n'; }
+      else if (c.classList && c.classList.contains('annot')) out += `==${c.textContent}==%%${c.dataset.note}%%`;
+      else if (c.tagName === 'DIV') { out += '\n'; walk(c); }
+      else walk(c);
+    }
+  })(root);
+  return out.replace(/^\n+|\n+$/g, '');
 }
 const focus = () => path[path.length - 1];
 const focusHasChildren = () => tree && focus().children.length > 0;
@@ -329,7 +365,10 @@ function render() {
   ft.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); ft.blur(); } };
 
   const fb = $('focusbody');
-  fb.onclick = e => { if (e.target.classList.contains('entity')) openTagByName(e.target.dataset.name); };
+  fb.onclick = e => {
+    if (e.target.classList.contains('entity')) openTagByName(e.target.dataset.name);
+    else if (e.target.classList.contains('annot')) openAnnot(e.target);
+  };
   if (readonly) {
     fb.contentEditable = 'false';
     fb.innerHTML = linkify(f.body);
@@ -337,7 +376,7 @@ function render() {
   } else {
     fb.contentEditable = 'true';
     fb.innerHTML = linkify(f.body, true);
-    fb.oninput = () => { f.body = fb.innerText.replace(/\n+$/, ''); queueSave(); };
+    fb.oninput = () => { f.body = domToMd(fb); queueSave(); };
     fb.onblur = () => { clearTimeout(saveTimer); save(); };
     fb.onpaste = e => { e.preventDefault(); document.execCommand('insertText', false, e.clipboardData.getData('text/plain')); };
   }
@@ -590,7 +629,7 @@ function makeGrip(grip, compute, key, min, max) {
   };
 }
 makeGrip($('sidegrip'), ev => ev.clientX, 'sidew', 160, 480);
-makeGrip($('notesgrip'), ev => innerWidth - ev.clientX, 'notesw', 260, 640);
+makeGrip($('notesgrip'), ev => innerWidth - ev.clientX, 'notesw', 260, Math.round(innerWidth * 0.7));
 
 $('modebtn').onclick = () => {
   readonly = !readonly;
@@ -675,6 +714,7 @@ $('main').addEventListener('wheel', e => {
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
   if ($('ctxmenu')) { closeCtx(); return; }
+  if (curMark) { closeAnnot(); return; }
   if ($('notespanel').classList.contains('open')) { $('notespanel').classList.remove('open'); return; }
   if (tree && path.length > 1 && !e.target.matches('input,textarea,[contenteditable]')) { path.pop(); render(); }
 });
@@ -795,46 +835,111 @@ async function createTag(cat, name) {
   render();
 }
 
-// ---- highlight -> right-click -> tag ----
+// ---- highlight -> right-click -> tag or annotate ----
 function closeCtx() { const m = $('ctxmenu'); if (m) m.remove(); }
 document.addEventListener('contextmenu', e => {
   closeCtx();
   if (!tree || !storyDir) return;
-  const name = document.getSelection().toString().trim();
-  if (!name || name.length > 60 || name.includes('\n') || tagIndex.has(name)) return;
-  if (!e.target.closest('#main')) return;
-  e.preventDefault();
+  const sel = document.getSelection();
+  const name = sel.toString().trim();
+  if (!name || name.includes('\n') || !e.target.closest('#main')) return;
 
   const menu = document.createElement('div');
   menu.id = 'ctxmenu';
-  const head = document.createElement('div');
-  head.className = 'head';
-  head.textContent = `Tag "${name}" as`;
-  menu.appendChild(head);
-  const cats = [...new Set([...allCats.filter(c => c !== 'entities'), 'character', 'location', 'item'])].sort();
-  for (const cat of cats) {
+
+  // annotate: selection inside the editable body, not already annotated
+  if (!readonly && $('focusbody').contains(sel.anchorNode) && !sel.anchorNode.parentElement.closest('mark.annot')) {
     const it = document.createElement('div');
     it.className = 'item';
-    it.textContent = cat;
-    it.onclick = () => { closeCtx(); createTag(cat, name); };
+    it.textContent = '🗒 Add note to selection';
+    it.style.textTransform = 'none';
+    it.onclick = () => { closeCtx(); annotateSelection(sel); };
     menu.appendChild(it);
   }
-  const nw = document.createElement('div');
-  nw.className = 'item new';
-  nw.textContent = 'new category…';
-  nw.onclick = () => {
-    closeCtx();
-    const cat = prompt('Category name:');
-    if (cat) createTag(cat.trim().toLowerCase(), name);
-  };
-  menu.appendChild(nw);
 
+  if (name.length <= 60 && !tagIndex.has(name)) {
+    const head = document.createElement('div');
+    head.className = 'head';
+    head.textContent = `Tag "${name}" as`;
+    menu.appendChild(head);
+    const cats = [...new Set([...allCats.filter(c => c !== 'entities'), 'character', 'location', 'item'])].sort();
+    for (const cat of cats) {
+      const it = document.createElement('div');
+      it.className = 'item';
+      it.textContent = cat;
+      it.onclick = () => { closeCtx(); createTag(cat, name); };
+      menu.appendChild(it);
+    }
+    const nw = document.createElement('div');
+    nw.className = 'item new';
+    nw.textContent = 'new category…';
+    nw.onclick = () => {
+      closeCtx();
+      const cat = prompt('Category name:');
+      if (cat) createTag(cat.trim().toLowerCase(), name);
+    };
+    menu.appendChild(nw);
+  }
+
+  if (!menu.children.length) return;
+  e.preventDefault();
   document.body.appendChild(menu);
   const r = menu.getBoundingClientRect();
   menu.style.left = Math.min(e.clientX, innerWidth - r.width - 8) + 'px';
   menu.style.top = Math.min(e.clientY, innerHeight - r.height - 8) + 'px';
 });
 document.addEventListener('mousedown', e => { if (!e.target.closest('#ctxmenu')) closeCtx(); });
+
+// ---- inline annotations ----
+let curMark = null;
+function annotateSelection(sel) {
+  const range = sel.getRangeAt(0);
+  const mark = document.createElement('mark');
+  mark.className = 'annot';
+  mark.dataset.note = '';
+  try { range.surroundContents(mark); }
+  catch { alert('Select plain text only (a selection can\'t cut across a link or another note).'); return; }
+  sel.removeAllRanges();
+  focus().body = domToMd($('focusbody'));
+  queueSave();
+  openAnnot(mark);
+}
+function openAnnot(mark) {
+  curMark = mark;
+  const pop = $('annotpop');
+  pop.hidden = false;
+  $('annottext').value = mark.dataset.note;
+  const r = mark.getBoundingClientRect();
+  pop.style.left = Math.max(8, Math.min(r.left, innerWidth - 340)) + 'px';
+  pop.style.top = Math.min(r.bottom + 8, innerHeight - 190) + 'px';
+  $('annottext').focus();
+}
+function closeAnnot() {
+  if (!curMark) return;
+  curMark = null;
+  $('annotpop').hidden = true;
+  clearTimeout(saveTimer);
+  save();
+}
+$('annottext').oninput = () => {
+  if (!curMark) return;
+  const f = focus();
+  const next = $('annottext').value;
+  f.body = f.body.replace(`==${curMark.textContent}==%%${curMark.dataset.note}%%`, () => `==${curMark.textContent}==%%${next}%%`);
+  curMark.dataset.note = next;
+  queueSave();
+};
+$('annotdone').onclick = closeAnnot;
+$('annotdel').onclick = () => {
+  const f = focus();
+  f.body = f.body.replace(`==${curMark.textContent}==%%${curMark.dataset.note}%%`, () => curMark.textContent);
+  curMark = null;
+  $('annotpop').hidden = true;
+  save(); render();
+};
+document.addEventListener('mousedown', e => {
+  if (curMark && !e.target.closest('#annotpop') && e.target !== curMark) closeAnnot();
+});
 
 // ---- library / stories ----
 $('openbtn').onclick = async () => {
@@ -893,6 +998,10 @@ $('newstory').onclick = async () => {
 
 // ponytail: parse/serialize/linkify self-check, runs on load
 (function test() {
+  const an = parse('# A\n\nsee ==the key==%%foreshadow%% here\n\n%%\nsection note\n%%\n', 'S');
+  console.assert(an.children[0].notes === 'section note', 'section note beside annotation');
+  console.assert(an.children[0].body === 'see ==the key==%%foreshadow%% here', 'annotation survives in body');
+  console.assert(linkify(an.children[0].body).includes('data-note="foreshadow"'), 'annotation renders');
   const nt = parse('# A\n\nprose here\n\n%%\nremember the key\n%%\n', 'S');
   console.assert(nt.children[0].body === 'prose here' && nt.children[0].notes === 'remember the key', 'notes extraction');
   console.assert(serialize(nt).includes('%%\nremember the key\n%%'), 'notes round-trip');
