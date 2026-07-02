@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <title>Writer</title>
 <script>
-// temporary diagnostics: surface webview errors visibly and to a log file
+// Surface webview errors visibly during alpha.
 function reportErr(msg) {
   let b = document.getElementById('errbanner');
   if (!b) {
@@ -14,7 +14,6 @@ function reportErr(msg) {
     document.body.appendChild(b);
   }
   b.textContent = msg;
-  try { window.__TAURI__.fs.writeTextFile('C:/Users/trevo/projects/writer/webview-error.log', msg); } catch (e) {}
 }
 window.addEventListener('error', e => reportErr((e.message || '') + ' @ ' + (e.filename || '') + ':' + (e.lineno || '')));
 window.addEventListener('unhandledrejection', e => reportErr('async: ' + (e.reason && (e.reason.stack || e.reason.message || String(e.reason)))));
@@ -30,17 +29,17 @@ window.addEventListener('unhandledrejection', e => reportErr('async: ' + (e.reas
 </div>
 <div id="sidebar">
   <div id="librarysection">
-    <div class="sechead">Stories<span class="secbtns"><span id="openbtn" class="secbtn" title="Open library folder">📂</span><span id="newstory" class="secbtn" title="New story" hidden>＋</span></span></div>
+    <div class="sechead">Stories<span class="secbtns"><span id="samplebtn" class="secbtn" title="Open sample library"></span><span id="openbtn" class="secbtn" title="Open library folder"></span><span id="newstory" class="secbtn" title="New story" hidden></span></span></div>
     <div id="storylist"></div>
   </div>
   <div id="storyheader" hidden>
-    <div id="backlib">‹ All stories</div>
-    <div style="display:flex;align-items:center"><div id="storyname" style="flex:1"></div><span id="storyinfobtn" class="secbtn" title="Story details (author, contact)"></span></div>
-    <div class="sechead">Outline<span class="secbtns"><span id="outlinetoggle" class="secbtn" title="Expand / collapse all">⊞</span></span></div>
+    <div id="backlib">&lt; All stories</div>
+    <div style="display:flex;align-items:center"><div id="storyname" style="flex:1"></div><span id="restorebtn" class="secbtn" title="Restore latest story.md backup" hidden></span><span id="storyinfobtn" class="secbtn" title="Story details (author, contact)"></span></div>
+    <div class="sechead">Outline<span class="secbtns"><span id="outlinetoggle" class="secbtn" title="Expand / collapse all"></span></span></div>
     <div id="outlinelist"></div>
   </div>
   <div id="tagsection" hidden>
-    <div class="sechead">Tags<span class="secbtns"><span id="newtag" class="secbtn" title="New category">＋</span></span></div>
+    <div class="sechead">Tags<span class="secbtns"><span id="newtag" class="secbtn" title="New category"></span></span></div>
     <div id="taglist"></div>
   </div>
 </div>
@@ -76,10 +75,10 @@ window.addEventListener('unhandledrejection', e => reportErr('async: ' + (e.reas
     <label>Author
       <input type="text" id="si-author" autocomplete="off">
     </label>
-    <label>Byline — pen name, if different
+    <label>Byline - pen name, if different
       <input type="text" id="si-byline" autocomplete="off" placeholder="defaults to author">
     </label>
-    <label>Contact info — one line each (address, email, phone)
+    <label>Contact info - one line each (address, email, phone)
       <textarea id="si-contact" rows="4"></textarea>
     </label>
     <div class="btns">
@@ -100,9 +99,9 @@ window.addEventListener('unhandledrejection', e => reportErr('async: ' + (e.reas
     </label>
     <label>Format
       <select id="ex-format">
-        <option value="docx" selected>Word (.docx) — for agents and editors</option>
+        <option value="docx" selected>Word (.docx) - for agents and editors</option>
         <option value="md">Markdown (.md)</option>
-        <option value="html">HTML (.html) — print to PDF from the browser</option>
+        <option value="html">HTML (.html) - print to PDF from the browser</option>
       </select>
     </label>
     <label style="display:flex;align-items:center;gap:8px;color:var(--text)">
@@ -135,10 +134,10 @@ window.addEventListener('unhandledrejection', e => reportErr('async: ' + (e.reas
     <label>Start from
       <select id="ns-template">
         <option value="blank">Blank</option>
-        <option value="short">Short story — 3 scenes</option>
-        <option value="novel" selected>Novel — 3 parts, 4 chapters each, 2 scenes each</option>
-        <option value="epic">Epic — 3 books, 3 parts, 3 chapters, 2 scenes</option>
-        <option value="custom">Custom…</option>
+        <option value="short">Short story - 3 scenes</option>
+        <option value="novel" selected>Novel - 3 parts, 4 chapters each, 2 scenes each</option>
+        <option value="epic">Epic - 3 books, 3 parts, 3 chapters, 2 scenes</option>
+        <option value="custom">Custom...</option>
       </select>
     </label>
     <div class="row" id="ns-custom" hidden>
@@ -159,7 +158,7 @@ window.addEventListener('unhandledrejection', e => reportErr('async: ' + (e.reas
   <div id="crumbs">
     <span id="histbtns" hidden><button id="undobtn" title="Undo move/delete (Ctrl+Z)" disabled></button><button id="redobtn" title="Redo (Ctrl+Y)" disabled></button></span>
     <div id="crumbpath"></div>
-    <div id="topsearch" hidden title="Search (Ctrl+P)"><span id="tsicon" style="display:flex"></span><input id="searchinput" placeholder="Search story…" autocomplete="off"><div id="searchdrop" hidden><div id="searchresults"></div></div></div>
+    <div id="topsearch" hidden title="Search (Ctrl+P)"><span id="tsicon" style="display:flex"></span><input id="searchinput" placeholder="Search story..." autocomplete="off"><div id="searchdrop" hidden><div id="searchresults"></div></div></div>
     <div id="topbtns"><button id="gridbtn" hidden title="Toggle grid view for panels"></button><button id="panelsbtn" hidden title="Show/hide the section panels"></button><button id="modebtn" hidden title="Toggle read-only (like Obsidian's reading view)"></button></div>
   </div>
   <div id="focus" hidden>
@@ -173,11 +172,11 @@ window.addEventListener('unhandledrejection', e => reportErr('async: ' + (e.reas
   </div>
   <div id="panels"></div>
   <div id="timeline" hidden><div id="track"></div></div>
-  <div id="hint">Open a folder to begin.<br><small>Each story is a folder of plain markdown — Obsidian-compatible.<br>Click a panel to open it · ctrl+scroll up over a panel to dive in, ctrl+scroll down to back out.<br>Layers name themselves: leaves are scenes; nest inside one and it becomes a chapter, then a part, then a book.<br>Tagged names auto-link everywhere they appear.</small></div>
+  <div id="hint">Open a folder to begin.<br><small>Each story is a folder of plain markdown - Obsidian-compatible.<br>Click a panel to open it. Ctrl+scroll up over a panel to dive in, ctrl+scroll down to back out.<br>Layers name themselves: leaves are scenes; nest inside one and it becomes a chapter, then a part, then a book.<br>Tagged names auto-link everywhere they appear.</small></div>
 </div>
 
 <div id="annotpop" hidden>
-  <textarea id="annottext" rows="4" placeholder="Note about this text…"></textarea>
+  <textarea id="annottext" rows="4" placeholder="Note about this text..."></textarea>
   <div style="display:flex;margin-top:8px">
     <button id="annotdel">Remove note</button>
     <button id="annotdone" style="margin-left:auto">Done</button>
@@ -186,10 +185,11 @@ window.addEventListener('unhandledrejection', e => reportErr('async: ' + (e.reas
 <div id="notestab" hidden>Notes</div>
 <div id="notespanel">
   <div id="notesgrip" title="Drag to resize"></div>
-  <div class="nhead">Notes<b id="noteslabel"></b><span class="nclose" title="Close">✕</span></div>
+  <div class="nhead">Notes<b id="noteslabel"></b><span class="nclose" title="Close">x</span></div>
   <div id="notestext" contenteditable="plaintext-only"></div>
   <div id="annotlist"></div>
 </div>
+<div id="savestatus">No story open</div>
 
 <script type="module" src="main.js"></script>
 </body>

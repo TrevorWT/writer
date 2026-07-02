@@ -10,6 +10,7 @@ document.getElementById('sidetoggle').innerHTML = icon('sidebar', 18);
 document.getElementById('settingsbtn').innerHTML = icon('gear', 17);
 document.getElementById('exportbtn').innerHTML = icon('upload', 17);
 document.getElementById('tsicon').innerHTML = icon('search', 13);
+document.getElementById('samplebtn').innerHTML = icon('book', 14);
 document.getElementById('openbtn').innerHTML = icon('folder', 14);
 document.getElementById('newstory').innerHTML = icon('plus', 14);
 document.getElementById('newtag').innerHTML = icon('plus', 14);
@@ -17,6 +18,7 @@ document.getElementById('undobtn').innerHTML = icon('undo', 14);
 document.getElementById('redobtn').innerHTML = icon('redo', 14);
 document.getElementById('modebtn').innerHTML = icon('pencil', 13) + ' editing';
 document.getElementById('storyinfobtn').innerHTML = icon('pencil', 12);
+document.getElementById('restorebtn').innerHTML = icon('undo', 12);
 
 const KIND = ['Story', 'Part', 'Chapter', 'Scene', 'Page', 'Section', 'Section'];
 let libPath = null, storyPath = null, storyName = '', storyTree = null;
@@ -32,6 +34,11 @@ let allCats = [];          // categories present in this story
 
 const $ = id => document.getElementById(id);
 const kindName = depth => currentTag ? (depth === 0 ? currentTag.cat : 'Section') : (KIND[depth] || 'Section');
+
+function setStatus(text, err = false) {
+  $('savestatus').textContent = text;
+  $('savestatus').classList.toggle('err', err);
+}
 
 // generated numbering: layer names hang from the BOTTOM of the tree — leaves
 // are Scenes, scene-holders are Chapters, and so on up. Nesting deeper
@@ -62,50 +69,74 @@ async function trashFile(name, text) {
   const tp = FS.join(storyPath, '.trash');
   await FS.mkdir(tp);
   await FS.writeText(FS.join(tp, `${Date.now()} ${name}`), text);
+  await updateRestoreButton();
+}
+async function latestStoryBackup() {
+  if (!storyPath || !(await FS.exists(FS.join(storyPath, '.trash')).catch(() => false))) return null;
+  const files = (await FS.readDir(FS.join(storyPath, '.trash')))
+    .filter(f => !f.isDir && f.name.endsWith(' story.md'))
+    .sort((a, b) => b.name.localeCompare(a.name));
+  return files[0] ? FS.join(storyPath, '.trash', files[0].name) : null;
+}
+async function updateRestoreButton() {
+  $('restorebtn').hidden = !(await latestStoryBackup());
 }
 async function save() {
-  lastSaveAt = Date.now();
-  if (currentTag) { await FS.writeText(currentTagPath, serialize(tree)); lastSaveAt = Date.now(); return; }
-  if (storyBackup !== null) {
-    if (storyBackup.trim()) await trashFile('story.md', storyBackup);
-    storyBackup = null;
-  }
-  const H = treeHeight(tree);
-  const chDir = FS.join(storyPath, 'chapters');
-  await FS.mkdir(chDir);
-  const used = new Set();
-  let num = 0;
-  const chapters = [];
-  if (H >= 2) (function collect(n) {
-    for (const c of n.children) {
-      if (c.depth === H - 1) chapters.push(c); else collect(c);
+  setStatus('Saving...');
+  try {
+    lastSaveAt = Date.now();
+    if (currentTag) {
+      await FS.writeText(currentTagPath, serialize(tree));
+      lastSaveAt = Date.now();
+      setStatus('Saved');
+      return;
     }
-  })(tree);
-  for (const ch of chapters) {
-    const fname = chapterFileName(ch, ++num);
-    used.add(fname);
-    const text = serializeChapter(ch);
-    if (chapterCache.get(fname) !== text) {
-      await FS.writeText(FS.join(chDir, fname), text);
-      chapterCache.set(fname, text);
+    if (storyBackup !== null) {
+      if (storyBackup.trim()) await trashFile('story.md', storyBackup);
+      storyBackup = null;
     }
+    const H = treeHeight(tree);
+    const chDir = FS.join(storyPath, 'chapters');
+    await FS.mkdir(chDir);
+    const used = new Set();
+    let num = 0;
+    const chapters = [];
+    if (H >= 2) (function collect(n) {
+      for (const c of n.children) {
+        if (c.depth === H - 1) chapters.push(c); else collect(c);
+      }
+    })(tree);
+    for (const ch of chapters) {
+      const fname = chapterFileName(ch, ++num);
+      used.add(fname);
+      const text = serializeChapter(ch);
+      if (chapterCache.get(fname) !== text) {
+        await FS.writeText(FS.join(chDir, fname), text);
+        chapterCache.set(fname, text);
+      }
+    }
+    await FS.writeText(FS.join(storyPath, 'story.md'), buildFrontmatter(storyMeta) + serializeSkeleton(tree, H));
+    // sweep chapter files that no longer correspond to a chapter - NEVER hard
+    // delete: anything with content goes to .trash/ first
+    for (const f of await FS.readDir(chDir)) {
+      if (f.isDir || !f.name.endsWith('.md') || used.has(f.name)) continue;
+      try {
+        const text = await FS.readText(FS.join(chDir, f.name));
+        if (text.trim()) await trashFile(f.name, text);
+      } catch {}
+      await FS.remove(FS.join(chDir, f.name));
+      chapterCache.delete(f.name);
+    }
+    lastSaveAt = Date.now();
+    setStatus('Saved');
+  } catch (e) {
+    console.error(e);
+    setStatus('Save failed - check console', true);
+    throw e;
   }
-  await FS.writeText(FS.join(storyPath, 'story.md'), buildFrontmatter(storyMeta) + serializeSkeleton(tree, H));
-  // sweep chapter files that no longer correspond to a chapter — NEVER hard
-  // delete: anything with content goes to .trash/ first
-  for (const f of await FS.readDir(chDir)) {
-    if (f.isDir || !f.name.endsWith('.md') || used.has(f.name)) continue;
-    try {
-      const text = await FS.readText(FS.join(chDir, f.name));
-      if (text.trim()) await trashFile(f.name, text);
-    } catch {}
-    await FS.remove(FS.join(chDir, f.name));
-    chapterCache.delete(f.name);
-  }
-  lastSaveAt = Date.now();
 }
 let saveTimer = null;
-function queueSave() { clearTimeout(saveTimer); saveTimer = setTimeout(save, 600); }
+function queueSave() { setStatus('Unsaved changes'); clearTimeout(saveTimer); saveTimer = setTimeout(save, 600); }
 
 // ---- rendering ----
 function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
@@ -1093,7 +1124,12 @@ async function openLibrary(path) {
   if (FS.native) localStorage.setItem('writer-lib', path);
   $('newstory').hidden = false;
   await listStories();
+  setStatus('Library open');
 }
+$('samplebtn').onclick = async () => {
+  if (await FS.exists('sample-library').catch(() => false)) await openLibrary('sample-library');
+  else alert('Sample library was not found next to the app.');
+};
 $('openbtn').onclick = async () => {
   const p = await FS.pickFolder();
   if (p) await openLibrary(p);
@@ -1179,6 +1215,8 @@ async function openStory(name, el) {
   path = [tree];
   await refreshTags();
   render();
+  await updateRestoreButton();
+  setStatus(text.trim() ? 'Opened - first save keeps original story.md in .trash' : 'Opened');
   // watch for external edits (Obsidian, scripts) — reload unless we just saved
   if (unwatchStory) { unwatchStory(); unwatchStory = null; }
   unwatchStory = await FS.watch(storyPath, () => {
@@ -1203,9 +1241,20 @@ $('backlib').onclick = () => {
   $('tagsection').hidden = true;
   if (unwatchStory) { unwatchStory(); unwatchStory = null; }
   storyPath = null; storyName = ''; tree = null; storyTree = null; currentTag = null;
+  $('restorebtn').hidden = true;
+  setStatus('No story open');
   render();
 };
 $('storyname').onclick = () => openStory(storyName);
+$('restorebtn').onclick = async () => {
+  const p = await latestStoryBackup();
+  if (!p) return;
+  if (!confirm('Restore the latest story.md backup from .trash? Current story.md will be replaced.')) return;
+  await FS.writeText(FS.join(storyPath, 'story.md'), await FS.readText(p));
+  storyBackup = null;
+  await openStory(storyName);
+  setStatus('Restored story.md backup');
+};
 $('storyinfobtn').onclick = () => {
   $('si-author').value = storyMeta.author || '';
   $('si-byline').value = storyMeta.byline || '';
