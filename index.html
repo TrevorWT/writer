@@ -181,6 +181,18 @@
   #annotpop textarea { width:100%; background:var(--bg); color:var(--text); border:1px solid var(--line); border-radius:6px; padding:8px; font-family:system-ui,sans-serif; font-size:13px; line-height:1.5; resize:vertical; }
   #annotdel:hover { background:#4a3038; color:#f0a0a8; }
 
+  #searchwrap { position:fixed; inset:0; z-index:90; background:rgba(0,0,0,.35); display:flex; justify-content:center; align-items:flex-start; padding-top:12vh; }
+  #searchbox { width:560px; max-width:90vw; background:var(--pop); border:1px solid var(--btnh); border-radius:10px; box-shadow:0 12px 40px var(--shadow2); overflow:hidden; font-family:system-ui,sans-serif; }
+  #searchinput { width:100%; background:transparent; border:none; outline:none; color:var(--text); font-size:16px; padding:14px 16px; font-family:inherit; }
+  #searchresults { max-height:50vh; overflow-y:auto; border-top:1px solid var(--line); }
+  .sres { padding:8px 16px; cursor:pointer; font-size:13px; }
+  .sres.sel, .sres:hover { background:var(--hover); }
+  .sres .swhere { color:var(--text); }
+  .sres .swhere .skind { color:var(--dim); font-size:11px; text-transform:uppercase; letter-spacing:.06em; margin-right:8px; }
+  .sres .ssnip { color:var(--dim); margin-top:2px; font-size:12px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+  .sres .ssnip b { color:var(--accent); font-weight:600; }
+  #searchempty { padding:14px 16px; color:var(--ph); font-style:italic; font-size:13px; }
+
   #ctxmenu { position:fixed; background:var(--pop); border:1px solid var(--btnh); border-radius:8px; font-family:system-ui,sans-serif; font-size:13px; z-index:99; box-shadow:0 8px 24px var(--shadow2); padding:4px; min-width:180px; }
   #ctxmenu .head { padding:6px 12px 4px; color:var(--dim); font-size:11px; text-transform:uppercase; letter-spacing:.06em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:240px; }
   #ctxmenu .item { padding:7px 12px; border-radius:5px; cursor:pointer; text-transform:capitalize; }
@@ -191,6 +203,7 @@
 <body>
 <div id="ribbon">
   <div class="ribbtn" id="sidetoggle" title="Toggle sidebar">◧</div>
+  <div class="ribbtn" id="searchbtn" title="Search (Ctrl+P)">🔍</div>
   <div style="flex:1"></div>
   <div class="ribbtn" id="settingsbtn" title="Settings">⚙</div>
 </div>
@@ -276,6 +289,13 @@
   <div id="panels"></div>
   <div id="timeline" hidden><div id="track"></div></div>
   <div id="hint">Open a folder to begin.<br><small>Each story is a folder of plain markdown — Obsidian-compatible.<br>Click a panel to open it · ctrl+scroll up over a panel to dive in, ctrl+scroll down to back out.<br>Layers name themselves: leaves are scenes; nest inside one and it becomes a chapter, then a part, then a book.<br>Tagged names auto-link everywhere they appear.</small></div>
+</div>
+
+<div id="searchwrap" hidden>
+  <div id="searchbox">
+    <input id="searchinput" placeholder="Search sections, text, and tags…" autocomplete="off">
+    <div id="searchresults"></div>
+  </div>
 </div>
 
 <div id="annotpop" hidden>
@@ -1041,10 +1061,98 @@ $('main').addEventListener('wheel', e => {
 }, { passive: false });
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
+  if (!$('searchwrap').hidden) { closeSearch(); return; }
   if ($('ctxmenu')) { closeCtx(); return; }
   if (curMark) { closeAnnot(); return; }
   if ($('notespanel').classList.contains('open')) { $('notespanel').classList.remove('open'); return; }
   if (tree && path.length > 1 && !e.target.matches('input,textarea,[contenteditable]')) { path.pop(); render(); }
+});
+
+// ---- search (quick switcher + full text) ----
+let searchSel = 0, searchHits = [];
+function openSearch() {
+  if (!storyTree) return;
+  $('searchwrap').hidden = false;
+  $('searchinput').value = '';
+  doSearch('');
+  $('searchinput').focus();
+}
+function closeSearch() { $('searchwrap').hidden = true; }
+function doSearch(q) {
+  const ql = q.trim().toLowerCase();
+  searchHits = [];
+  searchSel = 0;
+  if (ql) {
+    (function walk(n, anc) {
+      for (const c of n.children) {
+        const p = [...anc, c];
+        const inTitle = c.title.toLowerCase().includes(ql);
+        const bodyIdx = c.body.toLowerCase().indexOf(ql);
+        const noteIdx = c.notes.toLowerCase().indexOf(ql);
+        if (inTitle || bodyIdx >= 0 || noteIdx >= 0) {
+          const src = bodyIdx >= 0 ? c.body : noteIdx >= 0 ? c.notes : '';
+          const idx = bodyIdx >= 0 ? bodyIdx : noteIdx;
+          searchHits.push({
+            kind: (kindMap.get(c) || {}).label || 'Section',
+            label: p.map(labelOf).join(' › '),
+            snippet: src ? src.slice(Math.max(0, idx - 40), idx + ql.length + 60).replace(/\n/g, ' ') : '',
+            q,
+            rank: inTitle ? 0 : noteIdx >= 0 && bodyIdx < 0 ? 2 : 1,
+            go: () => { currentTag = null; currentFile = storyFile; tree = storyTree; path = [storyTree, ...p]; render(); },
+          });
+        }
+      }
+      n.children.forEach(c => walk(c, [...anc, c]));
+    })(storyTree, []);
+    for (const [name, cat] of tagIndex)
+      if (name.toLowerCase().includes(ql))
+        searchHits.push({ kind: 'tag · ' + cat, label: name, snippet: '', q, rank: 0, go: () => openTag(cat, name) });
+    searchHits.sort((a, b) => a.rank - b.rank);
+    searchHits = searchHits.slice(0, 50);
+  }
+  const box = $('searchresults');
+  box.innerHTML = '';
+  if (!searchHits.length) {
+    const d = document.createElement('div');
+    d.id = 'searchempty';
+    d.textContent = ql ? 'No matches.' : 'Type to search this story.';
+    box.appendChild(d);
+    return;
+  }
+  searchHits.forEach((h, i) => {
+    const row = document.createElement('div');
+    row.className = 'sres' + (i === searchSel ? ' sel' : '');
+    const where = document.createElement('div');
+    where.className = 'swhere';
+    where.innerHTML = `<span class="skind">${esc(h.kind)}</span>` + esc(h.label);
+    row.appendChild(where);
+    if (h.snippet) {
+      const sn = document.createElement('div');
+      sn.className = 'ssnip';
+      sn.innerHTML = esc(h.snippet).replace(new RegExp(escRe(esc(h.q.trim())), 'i'), m => '<b>' + m + '</b>');
+      row.appendChild(sn);
+    }
+    row.onclick = () => { closeSearch(); h.go(); };
+    box.appendChild(row);
+  });
+}
+$('searchbtn').onclick = openSearch;
+$('searchinput').oninput = () => doSearch($('searchinput').value);
+$('searchinput').onkeydown = e => {
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    searchSel = Math.min(searchHits.length - 1, Math.max(0, searchSel + (e.key === 'ArrowDown' ? 1 : -1)));
+    document.querySelectorAll('.sres').forEach((r, i) => r.classList.toggle('sel', i === searchSel));
+    const sel = document.querySelector('.sres.sel');
+    if (sel) sel.scrollIntoView({ block: 'nearest' });
+  } else if (e.key === 'Enter' && searchHits[searchSel]) {
+    closeSearch();
+    searchHits[searchSel].go();
+  }
+};
+$('searchwrap').addEventListener('mousedown', e => { if (e.target === $('searchwrap')) closeSearch(); });
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') { e.preventDefault(); openSearch(); }
 });
 
 // ---- tags ----
