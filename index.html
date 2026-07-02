@@ -846,15 +846,37 @@ document.addEventListener('contextmenu', e => {
 
   const menu = document.createElement('div');
   menu.id = 'ctxmenu';
-
-  // annotate: selection inside the editable body, not already annotated
-  if (!readonly && $('focusbody').contains(sel.anchorNode) && !sel.anchorNode.parentElement.closest('mark.annot')) {
+  const addItem = (label, fn) => {
     const it = document.createElement('div');
     it.className = 'item';
-    it.textContent = '🗒 Add note to selection';
     it.style.textTransform = 'none';
-    it.onclick = () => { closeCtx(); annotateSelection(sel); };
+    it.textContent = label;
+    it.onclick = () => { closeCtx(); fn(); };
     menu.appendChild(it);
+  };
+
+  // clipboard basics (the custom menu replaces the native one)
+  const selText = sel.toString();
+  const savedRange = sel.rangeCount ? sel.getRangeAt(0).cloneRange() : null;
+  const restore = () => { const s = getSelection(); s.removeAllRanges(); if (savedRange) s.addRange(savedRange); };
+  const inBody = !readonly && $('focusbody').contains(sel.anchorNode);
+  addItem('Copy', () => navigator.clipboard.writeText(selText));
+  if (inBody) {
+    addItem('Cut', async () => {
+      await navigator.clipboard.writeText(selText);
+      restore();
+      document.execCommand('delete');   // fires input -> body syncs + autosaves
+    });
+    addItem('Paste', async () => {
+      const t = await navigator.clipboard.readText();
+      restore();
+      document.execCommand('insertText', false, t);
+    });
+  }
+
+  // annotate: selection inside the editable body, not already annotated
+  if (inBody && !sel.anchorNode.parentElement.closest('mark.annot')) {
+    addItem('🗒 Add note to selection', () => { restore(); annotateSelection(getSelection()); });
   }
 
   if (name.length <= 60 && !tagIndex.has(name)) {
