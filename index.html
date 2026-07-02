@@ -19,10 +19,19 @@
   * { box-sizing:border-box; }
   body { margin:0; font-family:Georgia,serif; background:var(--bg); color:var(--text); display:flex; height:100vh; overflow:hidden; }
 
-  #sidebar { width:var(--sidew,230px); background:var(--panel); padding:12px; overflow-y:auto; font-family:system-ui,sans-serif; font-size:14px; flex-shrink:0; position:relative; }
+  #sidebar { width:var(--sidew,230px); background:var(--panel); padding:6px 8px; overflow-y:auto; font-family:system-ui,sans-serif; font-size:13px; flex-shrink:0; position:relative; }
   body.sidecollapsed #sidebar, body.sidecollapsed #sidegrip { display:none; }
   #sidegrip { width:5px; cursor:col-resize; flex-shrink:0; background:transparent; }
   #sidegrip:hover, #sidegrip.dragging { background:var(--accent); }
+  .sechead { display:flex; align-items:center; text-transform:uppercase; font-size:11px; font-weight:600; letter-spacing:.07em; color:var(--dim); padding:5px 4px 3px; margin-top:8px; user-select:none; }
+  .sechead .secbtns { margin-left:auto; display:flex; gap:2px; }
+  .secbtn { width:20px; height:20px; display:flex; align-items:center; justify-content:center; border-radius:4px; cursor:pointer; color:var(--dim); font-size:13px; visibility:hidden; }
+  #sidebar:hover .secbtn { visibility:visible; }
+  .secbtn:hover { background:var(--btn); color:var(--text); }
+  #storylist:empty::before { content:"Open a library folder ↑"; color:var(--ph); font-style:italic; font-size:12px; padding:2px 6px; display:block; }
+  #backlib { color:var(--dim); cursor:pointer; font-size:11px; padding:4px 4px 0; }
+  #backlib:hover { color:var(--text); }
+  #storyname { font-weight:600; font-size:14px; margin:4px 0 2px; padding:0 4px; cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   dialog { background:var(--panel); color:var(--text); border:1px solid var(--btnh); border-radius:10px; padding:22px; font-family:system-ui,sans-serif; font-size:14px; min-width:340px; }
   dialog::backdrop { background:rgba(0,0,0,.55); }
   dialog h2 { margin:0 0 14px; font-size:16px; }
@@ -38,15 +47,16 @@
   #notesgrip { position:absolute; left:0; top:0; bottom:0; width:6px; cursor:col-resize; }
   #notesgrip:hover, #notesgrip.dragging { background:var(--accent); }
   #sidebar h3 { margin:16px 0 8px; font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:var(--dim); }
-  #sidebar .story { padding:6px 8px; border-radius:5px; cursor:pointer; }
+  #sidebar .story { padding:3px 6px; border-radius:4px; cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   #sidebar .story:hover, #sidebar .story.active { background:var(--btn); }
-  .cat { display:flex; align-items:center; padding:5px 8px 2px; color:var(--dim); font-size:12px; text-transform:capitalize; }
+  .cat { display:flex; align-items:center; padding:2px 4px 1px; color:var(--dim); font-size:12px; text-transform:capitalize; border-radius:4px; }
+  .cat:hover { background:var(--hover); }
   .cat .tbtn { margin-left:auto; visibility:hidden; cursor:pointer; font-size:11px; padding:1px 5px; border-radius:4px; background:var(--btn); }
   .cat:hover .tbtn { visibility:visible; }
-  .tag { padding:4px 8px 4px 24px; border-radius:5px; cursor:pointer; }
+  .tag { padding:2px 6px 2px 22px; border-radius:4px; cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .tag:hover, .tag.active { background:var(--btn); }
   .arrow { display:inline-block; width:14px; color:var(--dim); cursor:pointer; font-size:10px; flex-shrink:0; user-select:none; }
-  .orow { display:flex; align-items:center; padding:3px 8px; border-radius:5px; cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .orow { display:flex; align-items:center; padding:2px 6px; border-radius:4px; cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .orow:hover { background:var(--btn); }
   .orow.active { background:var(--btn); box-shadow:inset 2px 0 0 var(--accent); }
   .orow.active > span:last-child { color:var(--accent); }
@@ -168,21 +178,18 @@
 </div>
 <div id="sidebar">
   <div id="librarysection">
-    <button id="openbtn">📂 Open library folder</button>
-    <h3>Stories</h3>
+    <div class="sechead">Stories<span class="secbtns"><span id="openbtn" class="secbtn" title="Open library folder">📂</span><span id="newstory" class="secbtn" title="New story" hidden>＋</span></span></div>
     <div id="storylist"></div>
-    <button id="newstory" style="margin-top:8px" hidden>+ New story</button>
   </div>
   <div id="storyheader" hidden>
-    <div id="backlib" style="color:var(--dim);cursor:pointer;font-size:12px">‹ All stories</div>
-    <div id="storyname" style="font-weight:bold;font-size:16px;margin:6px 0 2px;cursor:pointer"></div>
-    <h3 style="display:flex;align-items:center">Outline<span id="outlinetoggle" title="Expand / collapse all" style="margin-left:auto;cursor:pointer;padding:0 5px;border-radius:4px">⊞</span></h3>
+    <div id="backlib">‹ All stories</div>
+    <div id="storyname"></div>
+    <div class="sechead">Outline<span class="secbtns"><span id="outlinetoggle" class="secbtn" title="Expand / collapse all">⊞</span></span></div>
     <div id="outlinelist"></div>
   </div>
   <div id="tagsection" hidden>
-    <h3>Tags</h3>
+    <div class="sechead">Tags<span class="secbtns"><span id="newtag" class="secbtn" title="New category">＋</span></span></div>
     <div id="taglist"></div>
-    <button id="newtag" style="margin-top:8px">+ New category</button>
   </div>
 </div>
 <div id="sidegrip" title="Drag to resize"></div>
