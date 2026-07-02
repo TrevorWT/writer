@@ -116,6 +116,9 @@
   .gap .plus { opacity:0; width:26px; height:26px; border-radius:50%; background:var(--btn); color:var(--text); font-size:18px; line-height:24px; text-align:center; cursor:pointer; transition:opacity .12s; user-select:none; }
   .gap:hover .plus { opacity:1; }
   .gap .plus:hover { background:var(--accent); color:#111; }
+  .gap.dragover { background:var(--accent); border-radius:3px; }
+  .panel.dragover { outline:2px dashed var(--accent); outline-offset:-2px; }
+  .orow.dragover { box-shadow:inset 0 0 0 1.5px var(--accent); }
 
   #timeline { height:76px; flex-shrink:0; position:relative; touch-action:none; cursor:pointer; }
   #track { position:absolute; left:50px; right:50px; top:38px; height:2px; background:var(--line); }
@@ -679,6 +682,8 @@ function renderOutline() {
         path = [storyTree, ...p];
         render();
       };
+      makeDraggable(row, c);
+      makeDropTarget(row, () => [c, c.children.length]);    // drop on an outline row = into it
       list.appendChild(row);
       if (c._open) walk(c, p, indent + 1);
     }
@@ -733,6 +738,8 @@ function panelEl(node) {
     path.push(node); render();
   };
   el._node = node;
+  makeDraggable(el, node);
+  makeDropTarget(el, () => [node, node.children.length]);   // drop ON a panel = nest inside it
   return el;
 }
 
@@ -745,6 +752,7 @@ function gapEl(parent, index) {
   plus.title = 'Add section';
   plus.onclick = () => addChild(parent, index);
   g.appendChild(plus);
+  makeDropTarget(g, () => [parent, index]);                 // drop BETWEEN panels = reorder
   return g;
 }
 
@@ -760,6 +768,57 @@ function addChild(parent, index) {
 }
 
 // in-place rename: the element itself becomes editable, no box
+// ---- drag & drop reordering ----
+let dragNode = null;
+const containsNode = (n, t) => n === t || n.children.some(c => containsNode(c, t));
+function findParent(root, node) {
+  for (const c of root.children) {
+    if (c === node) return root;
+    const r = findParent(c, node);
+    if (r) return r;
+  }
+  return null;
+}
+function moveNode(node, newParent, index) {
+  if (!node || node === newParent || containsNode(node, newParent)) return;
+  if (currentTag && storyTree && containsNode(storyTree, node)) return;  // outline drag while a tag page is open would save into the tag file
+  const oldParent = findParent(tree, node);
+  if (!oldParent) return;
+  const oldIdx = oldParent.children.indexOf(node);
+  oldParent.children.splice(oldIdx, 1);
+  if (oldParent === newParent && oldIdx < index) index--;
+  newParent.children.splice(index, 0, node);
+  (function fix(k, d) { k.depth = d; k.children.forEach(x => fix(x, d + 1)); })(node, newParent.depth + 1);
+  save(); render();
+}
+function makeDraggable(el, node) {
+  el.draggable = true;
+  el.addEventListener('dragstart', e => {
+    if (e.target.isContentEditable) { e.preventDefault(); return; }
+    dragNode = node;
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', '');
+    e.stopPropagation();
+  });
+  el.addEventListener('dragend', () => { dragNode = null; });
+}
+function makeDropTarget(el, getTarget) {   // getTarget() -> [parent, index]
+  el.addEventListener('dragover', e => {
+    if (!dragNode) return;
+    e.preventDefault();
+    e.stopPropagation();
+    el.classList.add('dragover');
+  });
+  el.addEventListener('dragleave', () => el.classList.remove('dragover'));
+  el.addEventListener('drop', e => {
+    e.preventDefault();
+    e.stopPropagation();
+    el.classList.remove('dragover');
+    const [parent, index] = getTarget();
+    moveNode(dragNode, parent, index);
+  });
+}
+
 // deletion: trivial sections get a confirm; anything substantial requires
 // typing DELETE so a stray click can't erase real writing
 function deleteNode(node) {
