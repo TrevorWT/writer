@@ -176,7 +176,7 @@
   </div>
   <div id="panels"></div>
   <div id="timeline" hidden><div id="track"></div></div>
-  <div id="hint">Open a folder to begin.<br><small>Each story is a folder with a story.md — plain markdown, Obsidian-compatible.<br>Click a panel to open it · ctrl+scroll up over a panel to dive in, ctrl+scroll down to back out.<br>Tagged names auto-link everywhere they appear.</small></div>
+  <div id="hint">Open a folder to begin.<br><small>Each story is a folder of plain markdown — Obsidian-compatible.<br>Click a panel to open it · ctrl+scroll up over a panel to dive in, ctrl+scroll down to back out.<br>Layers name themselves: leaves are scenes; nest inside one and it becomes a chapter, then a part, then a book.<br>Tagged names auto-link everywhere they appear.</small></div>
 </div>
 
 <div id="annotpop" hidden>
@@ -208,16 +208,20 @@ let allCats = [];          // categories present in this story
 const $ = id => document.getElementById(id);
 const kindName = depth => currentTag ? (depth === 0 ? currentTag.cat : 'Section') : (KIND[depth] || 'Section');
 
-// generated numbering: Part / Chapter / Scene by depth (scenes are the leaves
-// and run any length — no page concept), ordinals count globally in story order
+// generated numbering: layer names hang from the BOTTOM of the tree — leaves
+// are Scenes, scene-holders are Chapters, and so on up. Nesting deeper
+// anywhere relabels the whole story; no configuration.
+const LADDER = ['Scene', 'Chapter', 'Part', 'Book', 'Volume', 'Saga'];
+function treeHeight(n) { return n.children.length ? 1 + Math.max(...n.children.map(treeHeight)) : 0; }
 let kindMap = new Map();
 function computeKinds() {
   kindMap = new Map();
   if (!storyTree) return;
+  const H = treeHeight(storyTree);
   const counts = {};
   (function walk(n) {
     for (const c of n.children) {
-      const kind = c.depth === 1 ? 'Part' : c.depth === 2 ? 'Chapter' : 'Scene';
+      const kind = LADDER[Math.min(Math.max(H - c.depth, 0), LADDER.length - 1)];
       counts[kind] = (counts[kind] || 0) + 1;
       kindMap.set(c, { kind, num: counts[kind], label: kind + ' ' + counts[kind] });
       walk(c);
@@ -287,25 +291,42 @@ function chapterFileName(node, num) {
   const safe = node.title.replace(/[\\/:*?"<>|[\]]/g, '').trim();
   return String(num).padStart(2, '0') + (safe ? ' ' + safe : '') + '.md';
 }
+// chapter files are depth-agnostic: their scenes are written from # down,
+// re-depthed to fit wherever the chapter sits when loaded
+function serializeAt(node, depth) {
+  let out = ('#'.repeat(depth) + ' ' + node.title).trimEnd() + '\n\n';
+  if (node.body) out += node.body + '\n\n';
+  if (node.notes) out += '%%\n' + node.notes + '\n%%\n\n';
+  for (const c of node.children) out += serializeAt(c, depth + 1);
+  return out;
+}
 function serializeChapter(ch) {
   let out = '';
   if (ch.body) out += ch.body + '\n\n';
   if (ch.notes) out += '%%\n' + ch.notes + '\n%%\n\n';
-  for (const sc of ch.children) out += serialize(sc);
+  for (const sc of ch.children) out += serializeAt(sc, 1);
   return out;
 }
-function serializeSkeleton() {
+// the file seam is the level currently named Chapter (depth H-1); everything
+// above it lives in story.md, with embeds where the chapters go
+function serializeSkeleton(H) {
   let out = '';
   if (tree.body) out += tree.body + '\n\n';
   if (tree.notes) out += '%%\n' + tree.notes + '\n%%\n\n';
   let num = 0;
-  for (const part of tree.children) {
-    out += ('# ' + part.title).trimEnd() + '\n\n';
-    if (part.body) out += part.body + '\n\n';
-    if (part.notes) out += '%%\n' + part.notes + '\n%%\n\n';
-    for (const ch of part.children) out += `![[chapters/${chapterFileName(ch, ++num).slice(0, -3)}]]\n`;
-    if (part.children.length) out += '\n';
-  }
+  (function walk(n) {
+    for (const c of n.children) {
+      if (H >= 2 && c.depth === H - 1) {
+        out += `![[chapters/${chapterFileName(c, ++num).slice(0, -3)}]]\n`;
+        continue;
+      }
+      out += ('#'.repeat(c.depth) + ' ' + c.title).trimEnd() + '\n\n';
+      if (c.body) out += c.body + '\n\n';
+      if (c.notes) out += '%%\n' + c.notes + '\n%%\n\n';
+      walk(c);
+      if (H >= 2 && c.depth === H - 2 && c.children.length) out += '\n';
+    }
+  })(tree);
   return out;
 }
 async function writeFile(fh, text) {
@@ -315,21 +336,26 @@ async function writeFile(fh, text) {
 }
 async function save() {
   if (currentTag) { await writeFile(currentFile, serialize(tree)); return; }
+  const H = treeHeight(tree);
   const chaptersDir = await storyDir.getDirectoryHandle('chapters', { create: true });
   const used = new Set();
   let num = 0;
-  for (const part of tree.children) {
-    for (const ch of part.children) {
-      const fname = chapterFileName(ch, ++num);
-      used.add(fname);
-      const text = serializeChapter(ch);
-      if (chapterCache.get(fname) !== text) {
-        await writeFile(await chaptersDir.getFileHandle(fname, { create: true }), text);
-        chapterCache.set(fname, text);
-      }
+  const chapters = [];
+  if (H >= 2) (function collect(n) {
+    for (const c of n.children) {
+      if (c.depth === H - 1) chapters.push(c); else collect(c);
+    }
+  })(tree);
+  for (const ch of chapters) {
+    const fname = chapterFileName(ch, ++num);
+    used.add(fname);
+    const text = serializeChapter(ch);
+    if (chapterCache.get(fname) !== text) {
+      await writeFile(await chaptersDir.getFileHandle(fname, { create: true }), text);
+      chapterCache.set(fname, text);
     }
   }
-  await writeFile(storyFile, serializeSkeleton());
+  await writeFile(storyFile, serializeSkeleton(H));
   // sweep chapter files that no longer exist (deleted or renamed chapters)
   const stale = [];
   for await (const f of chaptersDir.values())
@@ -626,13 +652,11 @@ function gapEl(parent, index) {
   return g;
 }
 
-function defaultTitle(parent, index) {
-  if (currentTag) return 'New section';
-  if (parent.depth === 0) return ['Beginning', 'Middle', 'End'][index] || '';
-  return '';   // untitled — the generated label (Chapter 4, Page 12…) names it
+function defaultTitle() {
+  return currentTag ? 'New section' : '';   // story sections: the generated label names them
 }
 function addChild(parent, index) {
-  const node = { depth: parent.depth + 1, title: defaultTitle(parent, index), body: '', notes: '', children: [] };
+  const node = { depth: parent.depth + 1, title: defaultTitle(), body: '', notes: '', children: [] };
   parent.children.splice(index, 0, node);
   save(); render();
   const el = [...document.querySelectorAll('.panel')].find(p => p._node === node);
@@ -1084,24 +1108,28 @@ async function resolveChapterEmbeds(dirHandle, root) {
   chapterCache = new Map();
   let chaptersDir = null;
   try { chaptersDir = await dirHandle.getDirectoryHandle('chapters'); } catch { return; }
-  for (const part of root.children) {
+  const nodes = [root];
+  (function all(n) { n.children.forEach(c => { nodes.push(c); all(c); }); })(root);
+  for (const node of nodes) {
+    if (!node.body.includes('![[chapters/')) continue;
     const refs = [], keep = [];
-    for (const line of part.body.split('\n')) {
+    for (const line of node.body.split('\n')) {
       const m = line.trim().match(/^!\[\[chapters\/(.+?)\]\]$/);
       if (m) refs.push(m[1] + '.md'); else keep.push(line);
     }
-    part.body = keep.join('\n').trim();
+    node.body = keep.join('\n').trim();
     const loaded = [];
     for (const fname of refs) {
       try {
         const text = await (await (await chaptersDir.getFileHandle(fname)).getFile()).text();
         const c = parse(text, '');
-        const chapter = { depth: 2, title: fname.replace(/^\d+\s*/, '').replace(/\.md$/, ''), body: c.body, notes: c.notes, children: c.children };
+        const chapter = { depth: 0, title: fname.replace(/^\d+\s*/, '').replace(/\.md$/, ''), body: c.body, notes: c.notes, children: c.children };
+        (function fix(k, d) { k.depth = d; k.children.forEach(x => fix(x, d + 1)); })(chapter, node.depth + 1);
         chapterCache.set(fname, serializeChapter(chapter));
         loaded.push(chapter);
       } catch { console.warn('missing chapter file', fname); }
     }
-    part.children = [...loaded, ...part.children];
+    node.children = [...loaded, ...node.children];
   }
 }
 
@@ -1118,10 +1146,6 @@ async function openStory(dirHandle, el) {
   const text = await (await storyFile.getFile()).text();
   tree = parse(text, dirHandle.name);
   await resolveChapterEmbeds(dirHandle, tree);
-  if (!tree.children.length) {
-    ['Beginning', 'Middle', 'End'].forEach(t => tree.children.push({ depth: 1, title: t, body: '', notes: '', children: [] }));
-    await save();
-  }
   storyTree = tree;
   path = [tree];
   await refreshTags();
