@@ -109,7 +109,10 @@ window.addEventListener('unhandledrejection', e => reportErr('async: ' + (e.reas
   :root { --measure:720px; --fsize:17px; --lheight:1.7; --ui:13px; }
   button { font-size:var(--ui); }
   #focus { max-width:var(--measure); margin:0 auto; padding:10px 24px 0; width:100%; text-align:center; }
+  #titlerow { position:relative; }
   #focustitle { font-size:2.1em; font-weight:bold; cursor:text; line-height:1.2; }
+  #upbtn { position:absolute; left:0; top:50%; transform:translateY(-50%); width:36px; height:36px; border-radius:50%; background:transparent; border:none; padding:0; display:flex; align-items:center; justify-content:center; color:var(--dim); cursor:pointer; }
+  #upbtn:hover { background:var(--hover); color:var(--text); }
   #focuskind { font-family:system-ui,sans-serif; font-size:11px; text-transform:uppercase; letter-spacing:.15em; color:var(--dim); margin-bottom:6px; }
   #focusbody { text-align:left; white-space:pre-wrap; font-size:var(--fsize); line-height:var(--lheight); margin:14px 0 6px; cursor:text; min-height:1.5em; max-height:20vh; overflow-y:auto; color:var(--text2); }
   #focusbody:empty::before { content:"click to write…"; color:var(--ph); font-style:italic; }
@@ -345,13 +348,15 @@ window.addEventListener('unhandledrejection', e => reportErr('async: ' + (e.reas
   <div id="crumbs">
     <span id="histbtns" hidden><button id="undobtn" title="Undo move/delete (Ctrl+Z)" disabled>↶</button><button id="redobtn" title="Redo (Ctrl+Y)" disabled>↷</button></span>
     <div id="crumbpath"></div>
-    <button id="upbtn" hidden title="Back out one layer (Esc)" style="margin-right:8px;padding:4px 11px">‹</button>
     <div id="topsearch" hidden title="Search (Ctrl+P)">🔍<input id="searchinput" placeholder="Search story…" autocomplete="off"><div id="searchdrop" hidden><div id="searchresults"></div></div></div>
     <div id="topbtns"><button id="gridbtn" hidden title="Toggle grid view for panels">⊞ grid</button><button id="panelsbtn" hidden title="Show/hide the section panels">▦ panels</button><button id="modebtn" hidden title="Toggle read-only (like Obsidian's reading view)">✏️ editing</button></div>
   </div>
   <div id="focus" hidden>
     <div id="focuskind"></div>
-    <div id="focustitle"></div>
+    <div id="titlerow">
+      <button id="upbtn" hidden title="Back out one layer (Esc)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+      <div id="focustitle"></div>
+    </div>
     <div id="focusbody"></div>
     <div id="backlinks" hidden></div>
   </div>
@@ -515,7 +520,7 @@ function render() {
   $('modebtn').hidden = !has;
   $('topsearch').hidden = !has;
   $('upbtn').hidden = !has;
-  $('upbtn').disabled = has && path.length <= 1 && !currentTag;
+  $('upbtn').style.visibility = has && (path.length > 1 || currentTag) ? 'visible' : 'hidden';
   $('histbtns').hidden = !has || !!currentTag;
   $('panelsbtn').hidden = !has || !focusHasChildren();
   $('crumbpath').innerHTML = '';
