@@ -72,6 +72,15 @@
 
   #hint { color:var(--dim); font-family:system-ui,sans-serif; margin:120px auto; text-align:center; line-height:1.8; }
 
+  #backlinks { flex-shrink:0; max-height:32vh; overflow-y:auto; padding:0 40px 8px; font-family:system-ui,sans-serif; font-size:13px; }
+  #backlinks summary { cursor:pointer; color:var(--dim); padding:6px 0; user-select:none; }
+  #backlinks summary:hover { color:var(--text); }
+  .blrow { padding:6px 10px; border-radius:6px; cursor:pointer; }
+  .blrow:hover { background:#2c2c36; }
+  .blrow .where { color:var(--accent); }
+  .blrow .snippet { color:var(--dim); margin-top:2px; }
+  .blrow .snippet b { color:var(--text); font-weight:600; }
+
   #ctxmenu { position:fixed; background:#2c2c36; border:1px solid #4a4a58; border-radius:8px; font-family:system-ui,sans-serif; font-size:13px; z-index:99; box-shadow:0 8px 24px rgba(0,0,0,.5); padding:4px; min-width:180px; }
   #ctxmenu .head { padding:6px 12px 4px; color:var(--dim); font-size:11px; text-transform:uppercase; letter-spacing:.06em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:240px; }
   #ctxmenu .item { padding:7px 12px; border-radius:5px; cursor:pointer; text-transform:capitalize; }
@@ -107,6 +116,7 @@
     <div id="focusbody"></div>
   </div>
   <div id="panels"></div>
+  <div id="backlinks" hidden></div>
   <div id="timeline" hidden><div id="track"></div></div>
   <div id="hint">Open a folder to begin.<br><small>Each story is a folder with a story.md — plain markdown, Obsidian-compatible.<br>Click a panel to open it · scroll down over a panel to dive in, scroll up to back out · [[Name]] to tag.<br>Tagged names auto-link everywhere they appear.</small></div>
 </div>
@@ -248,6 +258,51 @@ function render() {
 
   renderTimeline();
   renderOutline();
+  renderBacklinks();
+}
+
+// ---- backlinks on tag pages ----
+function renderBacklinks() {
+  const bl = $('backlinks');
+  bl.innerHTML = '';
+  bl.hidden = true;
+  if (!currentTag || currentTag.template || !storyTree) return;
+  const re = new RegExp('\\b' + escRe(currentTag.name) + '\\b');
+  const hits = [];
+  (function walk(n, anc) {
+    n.children.forEach(c => {
+      const p = [...anc, c];
+      if (re.test(c.body) || re.test(c.title)) hits.push({ node: c, path: p });
+      walk(c, p);
+    });
+  })(storyTree, [storyTree]);
+  if (!hits.length) return;
+
+  bl.hidden = false;
+  const det = document.createElement('details');
+  const sum = document.createElement('summary');
+  sum.textContent = `Appears in ${hits.length} place${hits.length > 1 ? 's' : ''} in ${storyDir.name}`;
+  det.appendChild(sum);
+  for (const h of hits) {
+    const row = document.createElement('div');
+    row.className = 'blrow';
+    const where = document.createElement('div');
+    where.className = 'where';
+    where.textContent = h.path.slice(1).map(n => n.title || '(untitled)').join(' › ');
+    row.appendChild(where);
+    const i = h.node.body.search(re);
+    if (i >= 0) {
+      const snip = document.createElement('div');
+      snip.className = 'snippet';
+      const start = Math.max(0, i - 60);
+      const raw = (start > 0 ? '…' : '') + h.node.body.slice(start, i + currentTag.name.length + 60).replace(/\n/g, ' ') + '…';
+      snip.innerHTML = esc(raw).replace(re, m => '<b>' + m + '</b>');
+      row.appendChild(snip);
+    }
+    row.onclick = () => { currentTag = null; currentFile = storyFile; tree = storyTree; path = h.path; render(); };
+    det.appendChild(row);
+  }
+  bl.appendChild(det);
 }
 
 // ---- sidebar outline tree ----
@@ -514,7 +569,7 @@ async function templateText(cat) {
 async function openTemplate(cat) {
   const dir = await getTagDir(cat, true);
   currentFile = await dir.getFileHandle('_template.md', { create: true });
-  currentTag = { cat, name: cat + ' template' };
+  currentTag = { cat, name: cat + ' template', template: true };
   const text = await (await currentFile.getFile()).text();
   tree = parse(text || `type: ${cat}\n`, cat + ' template');
   path = [tree];
