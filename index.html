@@ -12,6 +12,17 @@
   body.sidecollapsed #sidebar, body.sidecollapsed #sidegrip { display:none; }
   #sidegrip { width:5px; cursor:col-resize; flex-shrink:0; background:transparent; }
   #sidegrip:hover, #sidegrip.dragging { background:var(--accent); }
+  dialog { background:var(--panel); color:var(--text); border:1px solid #4a4a58; border-radius:10px; padding:22px; font-family:system-ui,sans-serif; font-size:14px; min-width:340px; }
+  dialog::backdrop { background:rgba(0,0,0,.55); }
+  dialog h2 { margin:0 0 14px; font-size:16px; }
+  dialog label { display:block; margin-bottom:12px; color:var(--dim); font-size:12px; }
+  dialog input[type=text], dialog input[type=number], dialog select { display:block; width:100%; margin-top:4px; background:var(--bg); color:var(--text); border:1px solid #444; border-radius:6px; padding:7px 9px; font:inherit; font-size:14px; }
+  dialog .row { display:flex; gap:10px; }
+  dialog .row label { flex:1; }
+  dialog .btns { display:flex; gap:10px; margin-top:16px; }
+  dialog .btns button[type=submit] { background:var(--accent); color:#111; margin-left:auto; }
+  #settingsbtn { position:fixed; left:0; bottom:52px; z-index:60; background:var(--panel); border:1px solid #3c3c4a; border-left:none; border-radius:0 6px 6px 0; padding:8px 6px; cursor:pointer; color:var(--dim); font-size:13px; user-select:none; }
+  #settingsbtn:hover { color:var(--text); }
   #sidetoggle { position:fixed; left:0; bottom:14px; z-index:60; background:var(--panel); border:1px solid #3c3c4a; border-left:none; border-radius:0 6px 6px 0; padding:8px 5px; cursor:pointer; color:var(--dim); font-family:system-ui,sans-serif; font-size:12px; user-select:none; }
   #sidetoggle:hover { color:var(--text); }
   #notesgrip { position:absolute; left:0; top:0; bottom:0; width:6px; cursor:col-resize; }
@@ -161,6 +172,50 @@
 </div>
 <div id="sidegrip" title="Drag to resize"></div>
 <div id="sidetoggle" title="Show/hide sidebar">◧</div>
+<div id="settingsbtn" title="Settings">⚙</div>
+
+<dialog id="settingsdlg">
+  <form id="settingsform" method="dialog">
+    <h2>Settings</h2>
+    <label>Layer names, smallest to largest (leaves up)
+      <input type="text" id="ladderinput" placeholder="Scene, Chapter, Part, Book, Volume">
+    </label>
+    <div class="btns">
+      <button type="button" onclick="this.closest('dialog').close()">Cancel</button>
+      <button type="submit">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="newstorydlg">
+  <form id="newstoryform">
+    <h2>New story</h2>
+    <label>Name
+      <input type="text" id="ns-name" required autocomplete="off">
+    </label>
+    <label>Start from
+      <select id="ns-template">
+        <option value="blank">Blank</option>
+        <option value="short">Short story — 3 scenes</option>
+        <option value="novel" selected>Novel — 3 parts, 4 chapters each, 2 scenes each</option>
+        <option value="epic">Epic — 3 books, 3 parts, 3 chapters, 2 scenes</option>
+        <option value="custom">Custom…</option>
+      </select>
+    </label>
+    <div class="row" id="ns-custom" hidden>
+      <label>Layers deep
+        <input type="number" id="ns-depth" min="1" max="5" value="3">
+      </label>
+      <label>Sections per layer
+        <input type="number" id="ns-count" min="1" max="8" value="3">
+      </label>
+    </div>
+    <div class="btns">
+      <button type="button" onclick="this.closest('dialog').close()">Cancel</button>
+      <button type="submit">Create</button>
+    </div>
+  </form>
+</dialog>
 <div id="main">
   <div id="crumbs"><div id="crumbpath"></div><button id="panelsbtn" hidden title="Show/hide the section panels" style="margin-right:8px">▦ panels</button><button id="modebtn" hidden title="Toggle read-only (like Obsidian's reading view)">✏️ editing</button><button id="textbtn" hidden title="Text settings">Aa</button></div>
   <div id="textpop" hidden>
@@ -211,7 +266,7 @@ const kindName = depth => currentTag ? (depth === 0 ? currentTag.cat : 'Section'
 // generated numbering: layer names hang from the BOTTOM of the tree — leaves
 // are Scenes, scene-holders are Chapters, and so on up. Nesting deeper
 // anywhere relabels the whole story; no configuration.
-const LADDER = ['Scene', 'Chapter', 'Part', 'Book', 'Volume', 'Saga'];
+let LADDER = JSON.parse(localStorage.getItem('writer-ladder') || 'null') || ['Scene', 'Chapter', 'Part', 'Book', 'Volume'];
 function treeHeight(n) { return n.children.length ? 1 + Math.max(...n.children.map(treeHeight)) : 0; }
 let kindMap = new Map();
 function computeKinds() {
@@ -1159,12 +1214,42 @@ $('backlib').onclick = () => {
   render();
 };
 $('storyname').onclick = () => openStory(storyDir);
-$('newstory').onclick = async () => {
-  const name = prompt('Story name:');
+$('newstory').onclick = () => { $('ns-name').value = ''; $('newstorydlg').showModal(); };
+$('ns-template').onchange = () => { $('ns-custom').hidden = $('ns-template').value !== 'custom'; };
+const TEMPLATES = { blank: [], short: [3], novel: [3, 4, 2], epic: [3, 3, 3, 2] };
+function buildLevels(counts, depth = 1) {
+  if (!counts.length) return [];
+  return Array.from({ length: counts[0] }, () =>
+    ({ depth, title: '', body: '', notes: '', children: buildLevels(counts.slice(1), depth + 1) }));
+}
+$('newstoryform').onsubmit = async e => {
+  e.preventDefault();
+  const name = $('ns-name').value.trim();
   if (!name) return;
+  const tpl = $('ns-template').value;
+  const counts = tpl === 'custom'
+    ? Array(Math.min(5, +$('ns-depth').value || 1)).fill(Math.min(8, +$('ns-count').value || 1))
+    : TEMPLATES[tpl];
+  $('newstorydlg').close();
   const dir = await libDir.getDirectoryHandle(name, { create: true });
   await listStories();
   await openStory(dir);
+  if (counts.length && !tree.children.length) {
+    tree.children = buildLevels(counts);
+    await save();
+    render();
+  }
+};
+
+// ---- settings ----
+$('settingsbtn').onclick = () => { $('ladderinput').value = LADDER.join(', '); $('settingsdlg').showModal(); };
+$('settingsform').onsubmit = () => {
+  const names = $('ladderinput').value.split(',').map(s => s.trim()).filter(Boolean);
+  if (names.length) {
+    LADDER = names;
+    localStorage.setItem('writer-ladder', JSON.stringify(LADDER));
+  }
+  render();
 };
 
 // ponytail: parse/serialize/linkify self-check, runs on load
