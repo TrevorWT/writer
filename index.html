@@ -39,9 +39,10 @@
   #focuskind { font-family:system-ui,sans-serif; font-size:11px; text-transform:uppercase; letter-spacing:.15em; color:var(--dim); margin-bottom:6px; }
   #focusbody { text-align:left; white-space:pre-wrap; font-size:var(--fsize); line-height:var(--lheight); margin:14px 0 6px; cursor:text; min-height:1.5em; max-height:20vh; overflow-y:auto; color:#cfcdc6; }
   #focusbody:empty::before { content:"click to write…"; color:#565662; font-style:italic; }
-  /* leaf scene = a real writing surface: editor takes the whole height */
-  #main.writing #focus { flex:1; min-height:0; display:flex; flex-direction:column; }
-  #main.writing #focusbody { flex:1; max-height:none; overflow-y:auto; padding-bottom:20vh; }
+  /* leaf scene (or hidden panels) = a real writing surface: editor takes the whole height */
+  #main.writing #focus, #main.hidepanels #focus { flex:1; min-height:0; display:flex; flex-direction:column; }
+  #main.writing #focusbody, #main.hidepanels #focusbody { flex:1; max-height:none; overflow-y:auto; padding-bottom:20vh; }
+  #main.hidepanels #panels { display:none; }
   /* tag pages with backlinks: info sizes to its text so the list sits right below */
   #main.writing #focus:has(#backlinks:not([hidden])) #focusbody { flex:0 0 auto; padding-bottom:0; }
   #main.writing #focus:has(#backlinks:not([hidden])) #backlinks { max-height:none; flex:1; }
@@ -136,7 +137,7 @@
   </div>
 </div>
 <div id="main">
-  <div id="crumbs"><div id="crumbpath"></div><button id="modebtn" hidden title="Toggle read-only (like Obsidian's reading view)">✏️ editing</button><button id="textbtn" hidden title="Text settings">Aa</button></div>
+  <div id="crumbs"><div id="crumbpath"></div><button id="panelsbtn" hidden title="Show/hide the section panels" style="margin-right:8px">▦ panels</button><button id="modebtn" hidden title="Toggle read-only (like Obsidian's reading view)">✏️ editing</button><button id="textbtn" hidden title="Text settings">Aa</button></div>
   <div id="textpop" hidden>
     <label>Column width <span id="v-measure"></span><input type="range" id="s-measure" min="560" max="1400" step="20"></label>
     <label>Text size <span id="v-fsize"></span><input type="range" id="s-fsize" min="14" max="26" step="1"></label>
@@ -265,6 +266,8 @@ function linkify(s, edit) {
   return html;
 }
 const focus = () => path[path.length - 1];
+const focusHasChildren = () => tree && focus().children.length > 0;
+let panelsHidden = false;
 
 function render() {
   const has = !!tree;
@@ -272,6 +275,7 @@ function render() {
   $('focus').hidden = !has;
   $('modebtn').hidden = !has;
   $('textbtn').hidden = !has;
+  $('panelsbtn').hidden = !has || !focusHasChildren();
   $('crumbpath').innerHTML = '';
   $('panels').innerHTML = '';
   if (!has) { $('timeline').hidden = true; return; }
@@ -301,6 +305,8 @@ function render() {
     : f.depth === 0 ? 'Story' : ((kindMap.get(f) || {}).label || '');
   $('focuskind').textContent = kindLabel + (wc && !currentTag ? ` · ${wc.toLocaleString()} words` : '');
   $('main').classList.toggle('writing', !f.children.length && (f.depth > 0 || !!currentTag));
+  $('main').classList.toggle('hidepanels', panelsHidden && f.children.length > 0);
+  $('panelsbtn').textContent = panelsHidden ? '▢ panels' : '▦ panels';
   const ft = $('focustitle');
   const titleEditable = f.depth > 0 && !readonly;
   ft.contentEditable = titleEditable ? 'plaintext-only' : 'false';
@@ -524,6 +530,8 @@ $('textbtn').onclick = () => { $('textpop').hidden = !$('textpop').hidden; };
 document.addEventListener('mousedown', e => {
   if (!e.target.closest('#textpop,#textbtn')) $('textpop').hidden = true;
 });
+
+$('panelsbtn').onclick = () => { panelsHidden = !panelsHidden; render(); };
 
 $('modebtn').onclick = () => {
   readonly = !readonly;
