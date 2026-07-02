@@ -1,0 +1,27 @@
+{
+  "name": "writer",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "node tests/parser.test.js",
+    "tauri": "tauri",
+    "dev": "tauri dev",
+    "build": "tauri build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/TrevorWT/writer.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/TrevorWT/writer/issues"
+  },
+  "homepage": "https://github.com/TrevorWT/writer#readme",
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.11.4"
+  },
+  "type": "module"
+}

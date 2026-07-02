@@ -358,11 +358,16 @@
   <div id="annotlist"></div>
 </div>
 
-<script>
+<script type="module">
+import { parse, serialize, treeHeight, chapterFileName, serializeChapter, serializeSkeleton, cleanText, wordCount } from './parser.js';
+import { initFS } from './fs.js';
+const FS = initFS();
+
 const KIND = ['Story', 'Part', 'Chapter', 'Scene', 'Page', 'Section', 'Section'];
-let libDir = null, storyDir = null, storyFile = null, storyTree = null;
+let libPath = null, storyPath = null, storyName = '', storyTree = null;
+let currentTagPath = null;
+let unwatchStory = null, lastSaveAt = 0, watchTimer = null;
 const openCats = new Set();   // categories are collapsed unless opened
-let currentFile = null;    // the file the main view is editing (story.md or a tag page)
 let currentTag = null;     // {cat, name} when viewing a tag page, else null
 let tree = null, path = [];
 let readonly = false;
@@ -393,123 +398,26 @@ function computeKinds() {
   })(storyTree);
 }
 const labelOf = n => n.title || (kindMap.get(n) || {}).label || '(untitled)';
-function wordCount(n) {
-  let w = n.body ? n.body.replace(/%%[\s\S]*?%%/g, '').split(/\s+/).filter(Boolean).length : 0;
-  for (const c of n.children) w += wordCount(c);
-  return w;
-}
 
-// ---- markdown <-> tree ----
-function parse(md, rootTitle) {
-  const root = { depth: 0, title: rootTitle, body: '', children: [] };
-  const stack = [root];
-  let cur = root;
-  for (const line of md.split(/\r?\n/)) {
-    const m = line.match(/^(#{1,6})(?:\s+(.*))?$/);
-    if (m) {
-      const node = { depth: m[1].length, title: (m[2] || '').trim(), body: '', children: [] };
-      while (stack[stack.length - 1].depth >= node.depth) stack.pop();
-      stack[stack.length - 1].children.push(node);
-      stack.push(node);
-      cur = node;
-    } else {
-      cur.body += (cur.body ? '\n' : '') + line;
-    }
-  }
-  // %%…%% blocks are per-section notes (Obsidian comment syntax) — kept out
-  // of the prose body so word counts and display ignore them. Inline
-  // annotations (==text==%%note%%) stay in the body and are protected here.
-  (function trim(n) {
-    n.notes = '';
-    n.body = n.body
-      .replace(/==[^=\n]+==%%[\s\S]*?%%/g, m => m.replace(/%%/g, '\x00'))
-      .replace(/%%([\s\S]*?)%%/g, (m, t) => { n.notes += (n.notes ? '\n' : '') + t.trim(); return ''; })
-      .replace(/\x00/g, '%%')
-      .trim();
-    n.children.forEach(trim);
-  })(root);
-  // ponytail: single H1 = old-format title wrapper, unwrap it (a story whose only
-  // top-level section is one lone part would also unwrap; acceptable for now)
-  if (root.children.length === 1 && root.children[0].depth === 1) {
-    const h1 = root.children[0];
-    if (!root.body) root.body = h1.body;
-    root.children = h1.children;
-    root.children.forEach(function promote(n) { n.depth--; n.children.forEach(promote); });
-  }
-  return root;
-}
-function serialize(node) {
-  let out = '';
-  if (node.depth > 0) out += ('#'.repeat(node.depth) + ' ' + node.title).trimEnd() + '\n\n';
-  if (node.body) out += node.body + '\n\n';
-  if (node.notes) out += '%%\n' + node.notes + '\n%%\n\n';
-  for (const c of node.children) out += serialize(c);
-  return out;
-}
 // ---- hybrid storage: story.md is the skeleton, one file per chapter ----
-// story.md: root/part notes + ![[chapters/NN Title]] embeds (Obsidian renders
-// the whole book inline). Chapter files: chapter body/notes + scenes as ###.
 let chapterCache = new Map();   // filename -> last written text (skip clean writes)
+let storyBackup = null;         // raw story.md as loaded; trashed once on first save
 
-function chapterFileName(node, num) {
-  const safe = node.title.replace(/[\\/:*?"<>|[\]]/g, '').trim();
-  return String(num).padStart(2, '0') + (safe ? ' ' + safe : '') + '.md';
+async function trashFile(name, text) {
+  const tp = FS.join(storyPath, '.trash');
+  await FS.mkdir(tp);
+  await FS.writeText(FS.join(tp, `${Date.now()} ${name}`), text);
 }
-// chapter files are depth-agnostic: their scenes are written from # down,
-// re-depthed to fit wherever the chapter sits when loaded
-function serializeAt(node, depth) {
-  let out = ('#'.repeat(depth) + ' ' + node.title).trimEnd() + '\n\n';
-  if (node.body) out += node.body + '\n\n';
-  if (node.notes) out += '%%\n' + node.notes + '\n%%\n\n';
-  for (const c of node.children) out += serializeAt(c, depth + 1);
-  return out;
-}
-function serializeChapter(ch) {
-  let out = '';
-  if (ch.body) out += ch.body + '\n\n';
-  if (ch.notes) out += '%%\n' + ch.notes + '\n%%\n\n';
-  for (const sc of ch.children) out += serializeAt(sc, 1);
-  return out;
-}
-// the file seam is the level currently named Chapter (depth H-1); everything
-// above it lives in story.md, with embeds where the chapters go
-function serializeSkeleton(H) {
-  let out = '';
-  if (tree.body) out += tree.body + '\n\n';
-  if (tree.notes) out += '%%\n' + tree.notes + '\n%%\n\n';
-  let num = 0;
-  (function walk(n) {
-    for (const c of n.children) {
-      if (H >= 2 && c.depth === H - 1) {
-        out += `![[chapters/${chapterFileName(c, ++num).slice(0, -3)}]]\n`;
-        continue;
-      }
-      out += ('#'.repeat(c.depth) + ' ' + c.title).trimEnd() + '\n\n';
-      if (c.body) out += c.body + '\n\n';
-      if (c.notes) out += '%%\n' + c.notes + '\n%%\n\n';
-      walk(c);
-      if (H >= 2 && c.depth === H - 2 && c.children.length) out += '\n';
-    }
-  })(tree);
-  return out;
-}
-async function writeFile(fh, text) {
-  const w = await fh.createWritable();
-  await w.write(text);
-  await w.close();
-}
-let storyBackup = null;   // raw story.md as loaded; trashed once on first save
 async function save() {
-  if (currentTag) { await writeFile(currentFile, serialize(tree)); return; }
+  lastSaveAt = Date.now();
+  if (currentTag) { await FS.writeText(currentTagPath, serialize(tree)); lastSaveAt = Date.now(); return; }
   if (storyBackup !== null) {
-    if (storyBackup.trim()) {
-      const trash = await storyDir.getDirectoryHandle('.trash', { create: true });
-      await writeFile(await trash.getFileHandle(`${Date.now()} story.md`, { create: true }), storyBackup);
-    }
+    if (storyBackup.trim()) await trashFile('story.md', storyBackup);
     storyBackup = null;
   }
   const H = treeHeight(tree);
-  const chaptersDir = await storyDir.getDirectoryHandle('chapters', { create: true });
+  const chDir = FS.join(storyPath, 'chapters');
+  await FS.mkdir(chDir);
   const used = new Set();
   let num = 0;
   const chapters = [];
@@ -523,27 +431,23 @@ async function save() {
     used.add(fname);
     const text = serializeChapter(ch);
     if (chapterCache.get(fname) !== text) {
-      await writeFile(await chaptersDir.getFileHandle(fname, { create: true }), text);
+      await FS.writeText(FS.join(chDir, fname), text);
       chapterCache.set(fname, text);
     }
   }
-  await writeFile(storyFile, serializeSkeleton(H));
+  await FS.writeText(FS.join(storyPath, 'story.md'), serializeSkeleton(tree, H));
   // sweep chapter files that no longer correspond to a chapter — NEVER hard
   // delete: anything with content goes to .trash/ first
-  const stale = [];
-  for await (const f of chaptersDir.values())
-    if (f.kind === 'file' && f.name.endsWith('.md') && !used.has(f.name)) stale.push(f.name);
-  for (const name of stale) {
+  for (const f of await FS.readDir(chDir)) {
+    if (f.isDir || !f.name.endsWith('.md') || used.has(f.name)) continue;
     try {
-      const text = await (await (await chaptersDir.getFileHandle(name)).getFile()).text();
-      if (text.trim()) {
-        const trash = await storyDir.getDirectoryHandle('.trash', { create: true });
-        await writeFile(await trash.getFileHandle(`${Date.now()} ${name}`, { create: true }), text);
-      }
+      const text = await FS.readText(FS.join(chDir, f.name));
+      if (text.trim()) await trashFile(f.name, text);
     } catch {}
-    await chaptersDir.removeEntry(name);
-    chapterCache.delete(name);
+    await FS.remove(FS.join(chDir, f.name));
+    chapterCache.delete(f.name);
   }
+  lastSaveAt = Date.now();
 }
 let saveTimer = null;
 function queueSave() { clearTimeout(saveTimer); saveTimer = setTimeout(save, 600); }
@@ -605,8 +509,8 @@ function render() {
   const crumbs = $('crumbpath');
   if (currentTag) {
     const c = document.createElement('span');
-    c.textContent = storyDir.name;
-    c.onclick = () => openStory(storyDir);
+    c.textContent = storyName;
+    c.onclick = () => openStory(storyName);
     crumbs.appendChild(c);
     const s = document.createElement('span'); s.className = 'sep'; s.textContent = '›';
     crumbs.appendChild(s);
@@ -725,7 +629,7 @@ function renderBacklinks() {
   bl.hidden = false;
   const det = document.createElement('details');
   const sum = document.createElement('summary');
-  sum.textContent = `Appears in ${hits.length} place${hits.length > 1 ? 's' : ''} in ${storyDir.name}`;
+  sum.textContent = `Appears in ${hits.length} place${hits.length > 1 ? 's' : ''} in ${storyName}`;
   det.appendChild(sum);
   for (const h of hits) {
     const row = document.createElement('div');
@@ -743,7 +647,7 @@ function renderBacklinks() {
       snip.innerHTML = esc(raw).replace(re, m => '<b>' + m + '</b>');
       row.appendChild(snip);
     }
-    row.onclick = () => { currentTag = null; currentFile = storyFile; tree = storyTree; path = h.path; render(); };
+    row.onclick = () => { currentTag = null; currentTagPath = null; tree = storyTree; path = h.path; render(); };
     det.appendChild(row);
   }
   bl.appendChild(det);
@@ -788,12 +692,12 @@ function renderOutline() {
       del.title = 'Delete section';
       del.onclick = e => {
         e.stopPropagation();
-        if (currentTag) { currentTag = null; currentFile = storyFile; tree = storyTree; path = [storyTree]; }
+        if (currentTag) { currentTag = null; currentTagPath = null; tree = storyTree; path = [storyTree]; }
         deleteNode(c);
       };
       row.append(arrow, label, del);
       row.onclick = () => {
-        currentTag = null; currentFile = storyFile; tree = storyTree;
+        currentTag = null; currentTagPath = null; tree = storyTree;
         path = [storyTree, ...p];
         render();
       };
@@ -908,7 +812,7 @@ function applySnap(s) {
   storyTree = s.root;
   tree = storyTree;
   currentTag = null;
-  currentFile = storyFile;
+  currentTagPath = null;
   path = [storyTree];
   let node = storyTree;
   for (const i of s.idx) {
@@ -1197,7 +1101,7 @@ function doSearch(q) {
             snippet: src ? src.slice(Math.max(0, idx - 40), idx + ql.length + 60).replace(/\n/g, ' ') : '',
             q,
             rank: inTitle ? 0 : noteIdx >= 0 && bodyIdx < 0 ? 2 : 1,
-            go: () => { currentTag = null; currentFile = storyFile; tree = storyTree; path = [storyTree, ...p]; render(); },
+            go: () => { currentTag = null; currentTagPath = null; tree = storyTree; path = [storyTree, ...p]; render(); },
           });
         }
       }
@@ -1259,29 +1163,28 @@ document.addEventListener('keydown', e => {
 });
 
 // ---- tags ----
-async function getTagDir(cat, create) {
-  if (cat === 'entities') return storyDir.getDirectoryHandle('entities', { create });   // legacy folder
-  const tags = await storyDir.getDirectoryHandle('tags', { create: true });
-  return tags.getDirectoryHandle(cat, { create });
-}
+const tagDirPath = cat => cat === 'entities'
+  ? FS.join(storyPath, 'entities')            // legacy folder
+  : FS.join(storyPath, 'tags', cat);
+const tagFilePath = (cat, name) => FS.join(tagDirPath(cat), name + '.md');
 
 async function refreshTags() {
   tagIndex = new Map();
   const cats = [];   // {cat, names: []}
-  async function scanDir(cat, dir) {
+  async function scanDir(cat, dirPath) {
     const names = [];
-    for await (const f of dir.values()) {
-      if (f.kind !== 'file' || !f.name.endsWith('.md') || f.name.startsWith('_')) continue;
+    for (const f of await FS.readDir(dirPath)) {
+      if (f.isDir || !f.name.endsWith('.md') || f.name.startsWith('_')) continue;
       const name = f.name.slice(0, -3);
       names.push(name);
       tagIndex.set(name, cat);
     }
     if (names.length || cat !== 'entities') cats.push({ cat, names: names.sort() });
   }
-  try { await scanDir('entities', await storyDir.getDirectoryHandle('entities')); } catch {}
+  try { await scanDir('entities', FS.join(storyPath, 'entities')); } catch {}
   try {
-    const tags = await storyDir.getDirectoryHandle('tags');
-    for await (const d of tags.values()) if (d.kind === 'directory') await scanDir(d.name, d);
+    for (const d of await FS.readDir(FS.join(storyPath, 'tags')))
+      if (d.isDir) await scanDir(d.name, tagDirPath(d.name));
   } catch {}
 
   allCats = cats.map(c => c.cat);
@@ -1326,13 +1229,13 @@ async function refreshTags() {
 }
 
 async function openTag(cat, name) {
-  const dir = await getTagDir(cat, true);
-  currentFile = await dir.getFileHandle(name + '.md', { create: true });
+  await FS.mkdir(tagDirPath(cat));
+  currentTagPath = tagFilePath(cat, name);
   currentTag = { cat, name };
-  let text = await (await currentFile.getFile()).text();
+  let text = (await FS.exists(currentTagPath)) ? await FS.readText(currentTagPath) : '';
   if (!text.trim()) {
     text = await templateText(cat);
-    const w = await currentFile.createWritable(); await w.write(text); await w.close();
+    await FS.writeText(currentTagPath, text);
   }
   tree = parse(text, name);
   path = [tree];
@@ -1341,18 +1244,17 @@ async function openTag(cat, name) {
 }
 async function templateText(cat) {
   try {
-    const dir = await getTagDir(cat, false);
-    const f = await dir.getFileHandle('_template.md');
-    const t = await (await f.getFile()).text();
+    const t = await FS.readText(FS.join(tagDirPath(cat), '_template.md'));
     if (t.trim()) return t;
   } catch {}
   return `type: ${cat}\n`;
 }
 async function openTemplate(cat) {
-  const dir = await getTagDir(cat, true);
-  currentFile = await dir.getFileHandle('_template.md', { create: true });
+  await FS.mkdir(tagDirPath(cat));
+  currentTagPath = FS.join(tagDirPath(cat), '_template.md');
   currentTag = { cat, name: cat + ' template', template: true };
-  const text = await (await currentFile.getFile()).text();
+  const text = (await FS.exists(currentTagPath)) ? await FS.readText(currentTagPath) : '';
+  if (!text.trim()) await FS.writeText(currentTagPath, `type: ${cat}\n`);
   tree = parse(text || `type: ${cat}\n`, cat + ' template');
   path = [tree];
   render();
@@ -1378,24 +1280,21 @@ $('newtag').onclick = async () => {
 async function deleteTag(cat, name) {
   if (!confirm(`Delete tag "${name}"?`)) return;
   try {
-    const dir = await getTagDir(cat, false);
-    const text = await (await (await dir.getFileHandle(name + '.md')).getFile()).text();
-    if (text.trim()) {
-      const trash = await storyDir.getDirectoryHandle('.trash', { create: true });
-      await writeFile(await trash.getFileHandle(`${Date.now()} tag-${name}.md`, { create: true }), text);
-    }
-    await dir.removeEntry(name + '.md');
+    const p = tagFilePath(cat, name);
+    const text = await FS.readText(p);
+    if (text.trim()) await trashFile(`tag-${name}.md`, text);
+    await FS.remove(p);
   } catch {}
-  if (currentTag && currentTag.name === name) await openStory(storyDir);
+  if (currentTag && currentTag.name === name) await openStory(storyName);
   else { await refreshTags(); render(); }
 }
 
 // create a tag file without navigating away from where you're writing
 async function createTag(cat, name) {
-  const dir = await getTagDir(cat, true);
-  const fh = await dir.getFileHandle(name + '.md', { create: true });
-  const text = await (await fh.getFile()).text();
-  if (!text.trim()) { const w = await fh.createWritable(); await w.write(await templateText(cat)); await w.close(); }
+  await FS.mkdir(tagDirPath(cat));
+  const p = tagFilePath(cat, name);
+  const existing = (await FS.exists(p)) ? await FS.readText(p) : '';
+  if (!existing.trim()) await FS.writeText(p, await templateText(cat));
   await refreshTags();
   render();
 }
@@ -1404,7 +1303,7 @@ async function createTag(cat, name) {
 function closeCtx() { const m = $('ctxmenu'); if (m) m.remove(); }
 document.addEventListener('contextmenu', e => {
   closeCtx();
-  if (!tree || !storyDir) return;
+  if (!tree || !storyPath) return;
   const sel = document.getSelection();
   const name = sel.toString().trim();
   if (!name || name.includes('\n') || !e.target.closest('#main')) return;
@@ -1530,16 +1429,21 @@ document.addEventListener('mousedown', e => {
 });
 
 // ---- library / stories ----
-$('openbtn').onclick = async () => {
-  libDir = await showDirectoryPicker({ mode: 'readwrite' });
+async function openLibrary(path) {
+  libPath = path;
+  if (FS.native) localStorage.setItem('writer-lib', path);
   $('newstory').hidden = false;
   await listStories();
+}
+$('openbtn').onclick = async () => {
+  const p = await FS.pickFolder();
+  if (p) await openLibrary(p);
 };
 async function listStories() {
   const list = $('storylist');
   list.innerHTML = '';
-  for await (const entry of libDir.values()) {
-    if (entry.kind !== 'directory' || entry.name.startsWith('.')) continue;
+  for (const entry of await FS.readDir(libPath)) {
+    if (!entry.isDir || entry.name.startsWith('.')) continue;
     const div = document.createElement('div');
     div.className = 'story';
     const label = document.createElement('span');
@@ -1551,21 +1455,21 @@ async function listStories() {
     del.onclick = async e => {
       e.stopPropagation();
       if (prompt(`This permanently deletes the story "${entry.name}" and ALL its files.\n\nType the story name to confirm:`) !== entry.name) return;
-      await libDir.removeEntry(entry.name, { recursive: true });
+      await FS.removeDir(FS.join(libPath, entry.name));
       await listStories();
     };
     div.append(label, del);
-    div.onclick = () => openStory(entry, div);
+    div.onclick = () => openStory(entry.name, div);
     list.appendChild(div);
   }
 }
 // swap ![[chapters/...]] embed lines in part bodies for the loaded chapter
 // trees; old single-file stories have no embeds and load unchanged (their
 // inline ## chapters convert to files on the next save)
-async function resolveChapterEmbeds(dirHandle, root) {
+async function resolveChapterEmbeds(sPath, root) {
   chapterCache = new Map();
-  let chaptersDir = null;
-  try { chaptersDir = await dirHandle.getDirectoryHandle('chapters'); } catch { return; }
+  const chDir = FS.join(sPath, 'chapters');
+  if (!(await FS.exists(chDir))) return;
   const nodes = [root];
   (function all(n) { n.children.forEach(c => { nodes.push(c); all(c); }); })(root);
   for (const node of nodes) {
@@ -1579,8 +1483,8 @@ async function resolveChapterEmbeds(dirHandle, root) {
     const loaded = [];
     for (const fname of refs) {
       try {
-        const text = await (await (await chaptersDir.getFileHandle(fname)).getFile()).text();
-        const c = parse(text, '');
+        const text = await FS.readText(FS.join(chDir, fname));
+        const c = parse(text, '', { unwrap: false });
         const chapter = { depth: 0, title: fname.replace(/^\d+\s*/, '').replace(/\.md$/, ''), body: c.body, notes: c.notes, children: c.children };
         (function fix(k, d) { k.depth = d; k.children.forEach(x => fix(x, d + 1)); })(chapter, node.depth + 1);
         chapterCache.set(fname, serializeChapter(chapter));
@@ -1594,34 +1498,53 @@ async function resolveChapterEmbeds(dirHandle, root) {
   }
 }
 
-async function openStory(dirHandle, el) {
+async function openStory(name, el) {
   document.querySelectorAll('.story').forEach(s => s.classList.remove('active'));
   if (el) el.classList.add('active');
-  storyDir = dirHandle;
+  storyName = name;
+  storyPath = FS.join(libPath, name);
   $('librarysection').hidden = true;
   $('storyheader').hidden = false;
-  $('storyname').textContent = dirHandle.name;
-  storyFile = await dirHandle.getFileHandle('story.md', { create: true });
-  currentFile = storyFile;
+  $('storyname').textContent = name;
   currentTag = null;
-  const text = await (await storyFile.getFile()).text();
+  currentTagPath = null;
+  const sf = FS.join(storyPath, 'story.md');
+  const text = (await FS.exists(sf)) ? await FS.readText(sf) : '';
   storyBackup = text;
-  tree = parse(text, dirHandle.name);
-  await resolveChapterEmbeds(dirHandle, tree);
-  if (storyTree !== tree) { undoStack.length = 0; redoStack.length = 0; updateHistBtns(); }
+  tree = parse(text, name);
+  await resolveChapterEmbeds(storyPath, tree);
+  undoStack.length = 0; redoStack.length = 0; updateHistBtns();
   storyTree = tree;
   path = [tree];
   await refreshTags();
   render();
+  // watch for external edits (Obsidian, scripts) — reload unless we just saved
+  if (unwatchStory) { unwatchStory(); unwatchStory = null; }
+  unwatchStory = await FS.watch(storyPath, () => {
+    if (Date.now() - lastSaveAt < 2500) return;
+    clearTimeout(watchTimer);
+    watchTimer = setTimeout(async () => {
+      const idx = [];
+      for (let i = 1; i < path.length; i++) idx.push(path[i - 1].children.indexOf(path[i]));
+      const wasTag = currentTag;
+      await openStory(storyName);
+      if (!wasTag) {
+        let node = storyTree;
+        for (const i of idx) { node = node.children[i]; if (!node) break; path.push(node); }
+        render();
+      }
+    }, 400);
+  });
 }
 $('backlib').onclick = () => {
   $('librarysection').hidden = false;
   $('storyheader').hidden = true;
   $('tagsection').hidden = true;
-  storyDir = null; tree = null; storyTree = null; currentTag = null;
+  if (unwatchStory) { unwatchStory(); unwatchStory = null; }
+  storyPath = null; storyName = ''; tree = null; storyTree = null; currentTag = null;
   render();
 };
-$('storyname').onclick = () => openStory(storyDir);
+$('storyname').onclick = () => openStory(storyName);
 makeDropTarget($('storyname'), () => [storyTree, storyTree.children.length]);   // drop = promote to top level
 $('newstory').onclick = () => { $('ns-name').value = ''; $('newstorydlg').showModal(); };
 $('ns-template').onchange = () => { $('ns-custom').hidden = $('ns-template').value !== 'custom'; };
@@ -1640,9 +1563,9 @@ $('newstoryform').onsubmit = async e => {
     ? Array(Math.min(5, +$('ns-depth').value || 1)).fill(Math.min(8, +$('ns-count').value || 1))
     : TEMPLATES[tpl];
   $('newstorydlg').close();
-  const dir = await libDir.getDirectoryHandle(name, { create: true });
+  await FS.mkdir(FS.join(libPath, name));
   await listStories();
-  await openStory(dir);
+  await openStory(name);
   if (counts.length && !tree.children.length) {
     tree.children = buildLevels(counts);
     await save();
@@ -1652,13 +1575,6 @@ $('newstoryform').onsubmit = async e => {
 
 // ---- export / compile ----
 // notes, annotations' notes, and [[brackets]] never reach the manuscript
-function cleanText(s) {
-  return s
-    .replace(/==([^=\n]+)==%%[\s\S]*?%%/g, '$1')
-    .replace(/%%[\s\S]*?%%/g, '')
-    .replace(/\[\[([^\]]+)\]\]/g, '$1')
-    .trim();
-}
 function compileNode(n, base, opts) {
   const out = [];
   if (n.depth > base) {   // the export root's own title becomes the document title instead
@@ -1758,26 +1674,11 @@ $('settingsform').onsubmit = () => {
   render();
 };
 
-// ponytail: parse/serialize/linkify self-check, runs on load
-(function test() {
-  const an = parse('# A\n\nsee ==the key==%%foreshadow%% here\n\n%%\nsection note\n%%\n', 'S');
-  console.assert(an.children[0].notes === 'section note', 'section note beside annotation');
-  console.assert(an.children[0].body === 'see ==the key==%%foreshadow%% here', 'annotation survives in body');
-  console.assert(linkify(an.children[0].body).includes('data-note="foreshadow"'), 'annotation renders');
-  const nt = parse('# A\n\nprose here\n\n%%\nremember the key\n%%\n', 'S');
-  console.assert(nt.children[0].body === 'prose here' && nt.children[0].notes === 'remember the key', 'notes extraction');
-  console.assert(serialize(nt).includes('%%\nremember the key\n%%'), 'notes round-trip');
-  const u = parse('# P\n\n## C\n\n###\n\npage one\n\n###\n\npage two\n', 'S');
-  console.assert(u.children[0].children[0].children.length === 2 && u.children[0].children[0].children[0].title === '', 'bare ### headings');
-  const t = parse('logline\n\n# A\n\nbody [[Bob]]\n\n## C1\n\n# B\n', 'My Story');
-  console.assert(t.title === 'My Story' && t.body === 'logline');
-  console.assert(t.children.length === 2 && t.children[0].children[0].title === 'C1');
-  console.assert(parse(serialize(t), 'My Story').children[1].title === 'B');
-  tagIndex = new Map([['Mara', 'character']]);
-  const html = linkify('Mara met [[Rix]]. Mara left.');
-  console.assert((html.match(/data-name="Mara"/g) || []).length === 2, 'auto-link all instances');
-  console.assert(html.includes('data-name="Rix"'), 'bracket link');
-  tagIndex = new Map();
+// ---- startup: reopen the last library automatically (native only) ----
+(async function init() {
+  if (!FS.native) return;
+  const saved = localStorage.getItem('writer-lib');
+  if (saved && await FS.exists(saved).catch(() => false)) await openLibrary(saved);
 })();
 </script>
 </body>

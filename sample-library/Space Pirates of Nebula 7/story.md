@@ -2,8 +2,6 @@ A washed-up cargo pilot accidentally steals the galaxy's most wanted sandwich re
 
 # Beginning
 
-fdfsfsf
-
 # Beginning
 
 [[Dex]] is broke, his ship [[The Rusty Pelican]] is falling apart, and he takes one last shady delivery job from [[Big Wanda]]. The package turns out to be the secret recipe. Establish: Dex's debt, his talking navigation AI [[POLLY]], and why everyone wants this recipe.
