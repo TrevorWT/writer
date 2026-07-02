@@ -1664,7 +1664,10 @@ function compileNode(n, base, opts) {
   if (n.depth > base) {   // the export root's own title becomes the document title instead
     const layer = opts.layers[opts.H - n.depth] || { title: true, contents: true };
     if (layer.title) {
-      const title = n.title || (kindMap.get(n) || {}).label || 'Untitled';
+      const label = (kindMap.get(n) || {}).label || '';
+      const title = layer.numbers
+        ? label + (n.title ? ' — ' + n.title : '')       // "Chapter 1 — Down the Rabbit-Hole"
+        : (n.title || label || 'Untitled');
       out.push('#'.repeat(Math.min(6, n.depth - base + 1)) + ' ' + title);
     }
     const body = cleanText(n.body);
@@ -1712,7 +1715,7 @@ $('exportbtn').onclick = () => {
     const name = document.createElement('span');
     name.textContent = LADDER[Math.min(li, LADDER.length - 1)] + 's';
     row.appendChild(name);
-    for (const [key, label, def] of [['title', 'titles', li > 0], ['contents', 'contents', li === 0]]) {
+    for (const [key, label, def] of [['title', 'titles', li > 0], ['numbers', 'numbers', li > 0], ['contents', 'contents', li === 0]]) {
       const l = document.createElement('label');
       const cb = document.createElement('input');
       cb.type = 'checkbox';
@@ -1733,8 +1736,8 @@ $('exportform').onsubmit = e => {
   const H = treeHeight(storyTree);
   const layers = {};
   for (let li = H - 1; li >= 0; li--) {
-    const t = $(`ex-l-title-${li}`), c = $(`ex-l-contents-${li}`);
-    if (t) layers[li] = { title: t.checked, contents: c.checked };
+    const t = $(`ex-l-title-${li}`), c = $(`ex-l-contents-${li}`), nu = $(`ex-l-numbers-${li}`);
+    if (t) layers[li] = { title: t.checked, contents: c.checked, numbers: nu.checked };
   }
   const opts = { sep: $('ex-sep').value, H, layers };
   const md = compileNode(root, root.depth, opts).join('\n\n');
