@@ -38,6 +38,11 @@
   #focuskind { font-family:system-ui,sans-serif; font-size:11px; text-transform:uppercase; letter-spacing:.15em; color:var(--dim); margin-bottom:6px; }
   #focusbody { text-align:left; white-space:pre-wrap; line-height:1.7; margin:14px 0 6px; cursor:text; min-height:1.5em; max-height:20vh; overflow-y:auto; color:#cfcdc6; }
   #focusbody:empty::before { content:"click to write…"; color:#565662; font-style:italic; }
+  /* leaf scene = a real writing surface: editor takes the whole height */
+  #main.writing #focus { flex:1; min-height:0; display:flex; flex-direction:column; max-width:780px; }
+  #main.writing #focusbody { flex:1; max-height:none; overflow-y:auto; font-size:1.06em; padding-bottom:20vh; }
+  #main.writing #panels { flex:0 0 auto; padding:0 30px 8px; }
+
   [contenteditable] { outline:none; }
   [contenteditable]:empty::before { color:#565662; font-style:italic; }
   #focustitle[contenteditable]:empty::before { content:"untitled"; }
@@ -137,9 +142,8 @@ let allCats = [];          // categories present in this story
 const $ = id => document.getElementById(id);
 const kindName = depth => currentTag ? (depth === 0 ? currentTag.cat : 'Section') : (KIND[depth] || 'Section');
 
-// generated numbering: kind derived from position (a depth-3+ section with
-// children is a Scene, a leaf is a Page — so scenes are optional), ordinals
-// count globally across the whole story so page numbers never restart
+// generated numbering: Part / Chapter / Scene by depth (scenes are the leaves
+// and run any length — no page concept), ordinals count globally in story order
 let kindMap = new Map();
 function computeKinds() {
   kindMap = new Map();
@@ -147,7 +151,7 @@ function computeKinds() {
   const counts = {};
   (function walk(n) {
     for (const c of n.children) {
-      const kind = c.depth === 1 ? 'Part' : c.depth === 2 ? 'Chapter' : (c.children.length ? 'Scene' : 'Page');
+      const kind = c.depth === 1 ? 'Part' : c.depth === 2 ? 'Chapter' : 'Scene';
       counts[kind] = (counts[kind] || 0) + 1;
       kindMap.set(c, { kind, num: counts[kind], label: kind + ' ' + counts[kind] });
       walk(c);
@@ -155,6 +159,11 @@ function computeKinds() {
   })(storyTree);
 }
 const labelOf = n => n.title || (kindMap.get(n) || {}).label || '(untitled)';
+function wordCount(n) {
+  let w = n.body ? n.body.split(/\s+/).filter(Boolean).length : 0;
+  for (const c of n.children) w += wordCount(c);
+  return w;
+}
 
 // ---- markdown <-> tree ----
 function parse(md, rootTitle) {
@@ -248,8 +257,11 @@ function render() {
   });
 
   const f = focus();
-  $('focuskind').textContent = currentTag ? kindName(f.depth)
+  const wc = wordCount(f);
+  const kindLabel = currentTag ? kindName(f.depth)
     : f.depth === 0 ? 'Story' : ((kindMap.get(f) || {}).label || '');
+  $('focuskind').textContent = kindLabel + (wc && !currentTag ? ` · ${wc.toLocaleString()} words` : '');
+  $('main').classList.toggle('writing', !f.children.length && (f.depth > 0 || !!currentTag));
   const ft = $('focustitle');
   const titleEditable = f.depth > 0 && !readonly;
   ft.contentEditable = titleEditable ? 'plaintext-only' : 'false';
@@ -377,12 +389,18 @@ function panelEl(node) {
   const fade = document.createElement('div');
   fade.className = 'fade';
   el.append(h, p, fade);
-  if (node.children.length) {
-    const kinds = node.children.map(c => ((kindMap.get(c) || {}).kind || 'section').toLowerCase());
-    const word = kinds.every(k => k === kinds[0]) ? kinds[0] : 'section';
+  const wc = wordCount(node);
+  if (node.children.length || wc) {
     const c = document.createElement('div');
     c.className = 'count';
-    c.textContent = `${node.children.length} ${word}${node.children.length > 1 ? 's' : ''}`;
+    let t = '';
+    if (node.children.length) {
+      const kinds = node.children.map(k => ((kindMap.get(k) || {}).kind || 'section').toLowerCase());
+      const word = kinds.every(k => k === kinds[0]) ? kinds[0] : 'section';
+      t = `${node.children.length} ${word}${node.children.length > 1 ? 's' : ''}`;
+    }
+    if (wc) t += (t ? ' · ' : '') + wc.toLocaleString() + ' words';
+    c.textContent = t;
     el.appendChild(c);
   }
   el.onclick = e => {
