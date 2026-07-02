@@ -3,6 +3,22 @@
 <head>
 <meta charset="utf-8">
 <title>Writer</title>
+<script>
+// temporary diagnostics: surface webview errors visibly and to a log file
+function reportErr(msg) {
+  let b = document.getElementById('errbanner');
+  if (!b) {
+    b = document.createElement('div');
+    b.id = 'errbanner';
+    b.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#a33;color:#fff;padding:8px 14px;z-index:9999;font:13px monospace;white-space:pre-wrap';
+    document.body.appendChild(b);
+  }
+  b.textContent = msg;
+  try { window.__TAURI__.fs.writeTextFile('C:/Users/trevo/projects/writer/webview-error.log', msg); } catch (e) {}
+}
+window.addEventListener('error', e => reportErr((e.message || '') + ' @ ' + (e.filename || '') + ':' + (e.lineno || '')));
+window.addEventListener('unhandledrejection', e => reportErr('async: ' + (e.reason && (e.reason.stack || e.reason.message || String(e.reason)))));
+</script>
 <style>
   :root {
     --bg:#191920; --panel:#23232c; --paper:#2b2b36; --paper2:#31313e;
@@ -381,7 +397,6 @@ const kindName = depth => currentTag ? (depth === 0 ? currentTag.cat : 'Section'
 // are Scenes, scene-holders are Chapters, and so on up. Nesting deeper
 // anywhere relabels the whole story; no configuration.
 let LADDER = JSON.parse(localStorage.getItem('writer-ladder') || 'null') || ['Scene', 'Chapter', 'Part', 'Book', 'Volume'];
-function treeHeight(n) { return n.children.length ? 1 + Math.max(...n.children.map(treeHeight)) : 0; }
 let kindMap = new Map();
 function computeKinds() {
   kindMap = new Map();
