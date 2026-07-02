@@ -345,6 +345,7 @@ window.addEventListener('unhandledrejection', e => reportErr('async: ' + (e.reas
   <div id="crumbs">
     <span id="histbtns" hidden><button id="undobtn" title="Undo move/delete (Ctrl+Z)" disabled>↶</button><button id="redobtn" title="Redo (Ctrl+Y)" disabled>↷</button></span>
     <div id="crumbpath"></div>
+    <button id="upbtn" hidden title="Back out one layer (Esc)" style="margin-right:8px;padding:4px 11px">‹</button>
     <div id="topsearch" hidden title="Search (Ctrl+P)">🔍<input id="searchinput" placeholder="Search story…" autocomplete="off"><div id="searchdrop" hidden><div id="searchresults"></div></div></div>
     <div id="topbtns"><button id="gridbtn" hidden title="Toggle grid view for panels">⊞ grid</button><button id="panelsbtn" hidden title="Show/hide the section panels">▦ panels</button><button id="modebtn" hidden title="Toggle read-only (like Obsidian's reading view)">✏️ editing</button></div>
   </div>
@@ -513,6 +514,8 @@ function render() {
   $('focus').hidden = !has;
   $('modebtn').hidden = !has;
   $('topsearch').hidden = !has;
+  $('upbtn').hidden = !has;
+  $('upbtn').disabled = has && path.length <= 1 && !currentTag;
   $('histbtns').hidden = !has || !!currentTag;
   $('panelsbtn').hidden = !has || !focusHasChildren();
   $('crumbpath').innerHTML = '';
@@ -956,6 +959,10 @@ themeSel.onchange = () => {
   document.body.classList.toggle('light', themeSel.value === 'light');
 };
 
+$('upbtn').onclick = () => {
+  if (path.length > 1) { path.pop(); render(); }
+  else if (currentTag) openStory(storyName);   // tag page root -> back to the story
+};
 $('panelsbtn').onclick = () => { panelsHidden = !panelsHidden; render(); };
 $('gridbtn').onclick = () => { layout.grid = !layout.grid; saveLayout(); render(); };
 
