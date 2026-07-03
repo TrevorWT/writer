@@ -743,7 +743,7 @@ function panelEl(node) {
     if (e.target.isContentEditable) return;
     path.push(node); render();
   };
-  if (layout.grid) {
+  {
     const mkPlus = (cls, title, at) => {
       const gp = document.createElement('div');
       gp.className = 'gplus' + cls;
@@ -780,12 +780,10 @@ function gapEl(parent, index) {
     plus.classList.add('big');
     plus.textContent = '+ Add a ' + (currentTag ? 'section' : LADDER[0].toLowerCase()) + ' inside';
     g.classList.add('bigwrap');
-  } else {
-    plus.innerHTML = icon('plus', 14);
+    plus.title = 'Add section';
+    plus.onclick = () => addChild(parent, index);
+    g.appendChild(plus);
   }
-  plus.title = 'Add section';
-  plus.onclick = () => addChild(parent, index);
-  g.appendChild(plus);
   makeDropTarget(g, () => [parent, index]);                 // drop BETWEEN panels = reorder
   return g;
 }
