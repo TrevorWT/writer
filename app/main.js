@@ -2158,7 +2158,7 @@ $('newstory').onclick = () => {
 };
 $('hintnew').onclick = () => $('newstory').click();
 $('ns-template').onchange = () => { $('ns-custom').hidden = $('ns-template').value !== 'custom'; };
-const TEMPLATES = { blank: [], short: [3], novel: [3, 4, 2], epic: [3, 3, 3, 2] };
+const TEMPLATES = { blank: [], short: [3], novel: [2, 1, 1], epic: [2, 2, 1, 1] };
 function buildLevels(counts, depth = 1) {
   if (!counts.length) return [];
   return Array.from({ length: counts[0] }, () =>
