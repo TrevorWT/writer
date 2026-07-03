@@ -906,7 +906,10 @@ makeDropTarget(document.getElementById('upzone'), () => {
 async function deleteNode(node) {
   const wc = wordCount(node);
   const label = labelOf(node);
-  if (wc >= 100 || node.children.length) {
+  const empty = !wc && !node.children.length && !(node.notes || '').trim();
+  if (empty) {
+    // nothing to lose, and undo covers regret
+  } else if (wc >= 100 || node.children.length) {
     const detail = `${label}${node.children.length ? ` and its ${node.children.length} section${node.children.length > 1 ? 's' : ''}` : ''} — ${wc.toLocaleString()} words`;
     if (await appPrompt(`This permanently deletes ${detail}.\n\nType DELETE to confirm:`) !== 'DELETE') return;
   } else if (!(await appConfirm(`Delete ${label}?`))) return;
