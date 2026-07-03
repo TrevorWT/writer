@@ -287,6 +287,11 @@ window.addEventListener('unhandledrejection', e => reportErr('async: ' + (e.reas
 </dialog>
 <div id="main">
   <div id="crumbs">
+    <div id="navbtns" hidden>
+      <button id="prevbtn" class="navbtn" title="Previous sibling"></button>
+      <button id="upbtn" class="navbtn" title="Up a level (Esc)"></button>
+      <button id="nextbtn" class="navbtn" title="Next sibling"></button>
+    </div>
     <span id="histbtns" hidden><button id="undobtn" title="Undo move/delete (Ctrl+Z)" disabled></button><button id="redobtn" title="Redo (Ctrl+Y)" disabled></button></span>
     <div id="crumbpath"></div>
     <div id="topsearch" hidden title="Search (Ctrl+P)"><span id="tsicon" style="display:flex"></span><input id="searchinput" placeholder="Search story..." autocomplete="off"><div id="searchdrop" hidden><div id="replacerow" hidden><input id="replaceinput" placeholder="Replace with..." autocomplete="off"><button id="replaceall" type="button">Replace all</button></div><div id="searchresults"></div></div></div>
@@ -295,11 +300,6 @@ window.addEventListener('unhandledrejection', e => reportErr('async: ' + (e.reas
   <div id="focus" hidden>
     <div id="focuskind"></div>
     <div id="titlerow">
-      <div id="navbtns" hidden>
-        <button id="prevbtn" class="navbtn" title="Previous sibling"></button>
-        <button id="upbtn" class="navbtn" title="Up a level (Esc)"></button>
-        <button id="nextbtn" class="navbtn" title="Next sibling"></button>
-      </div>
       <div id="focustitle"></div>
     </div>
     <div id="focusbody"></div>

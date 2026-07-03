@@ -16,7 +16,8 @@
   ::-webkit-scrollbar-thumb { background:var(--btn); border-radius:5px; border:2px solid transparent; background-clip:padding-box; }
   ::-webkit-scrollbar-thumb:hover { background:var(--btnh); border:2px solid transparent; background-clip:padding-box; }
   ::-webkit-scrollbar-corner { background:transparent; }
-  body { margin:0; font-family:Georgia,serif; background:var(--bg); color:var(--text); display:flex; height:100vh; overflow:hidden; }
+  body { margin:0; font-family:system-ui,sans-serif; font-size:13px; background:var(--bg); color:var(--text); display:flex; height:100vh; overflow:hidden; }
+  #focustitle, #focusbody, .panel h4, .panel .preview { font-family:Georgia,serif; }
 
   #sidebar { width:var(--sidew,230px); background:var(--panel); border-right:1px solid var(--line); padding:6px 8px; overflow-y:auto; font-family:system-ui,sans-serif; font-size:13px; flex-shrink:0; position:relative; }
   body.sidecollapsed #sidebar, body.sidecollapsed #sidegrip { display:none; }
@@ -100,9 +101,9 @@
   button.iconbtn { width:32px; min-width:32px; padding:0; }
 
   #main { flex:1; overflow:hidden; display:flex; flex-direction:column; position:relative; }
-  #crumbs { padding:10px 16px 10px 24px; font-family:system-ui,sans-serif; font-size:13px; color:var(--dim); flex-shrink:0; display:flex; align-items:center; }
+  #crumbs { height:44px; padding:0 12px; font-size:12px; color:var(--dim); flex-shrink:0; display:flex; align-items:center; gap:8px; border-bottom:1px solid var(--line); background:var(--bg); }
   #crumbpath { flex:1; min-width:0; }
-  #topbtns { flex:1; display:flex; justify-content:flex-end; align-items:center; gap:8px; min-width:0; }
+  #topbtns { flex:1; display:flex; justify-content:flex-end; align-items:center; gap:2px; min-width:0; }
   #histbtns { display:flex; gap:4px; margin-right:10px; flex-shrink:0; }
   #histbtns button { width:30px; min-width:30px; min-height:28px; padding:0; }
   button[disabled] { opacity:.35; cursor:default; }
@@ -118,12 +119,16 @@
   :root { --measure:720px; --fsize:17px; --lheight:1.7; --ui:13px; }
   button { font-size:var(--ui); }
   #focus { max-width:var(--measure); margin:0 auto; padding:10px 24px 0; width:100%; text-align:center; }
-  #titlerow { position:relative; }
+  #titlerow { position:relative; margin-top:6px; }
   #focustitle { font-size:2.1em; font-weight:bold; cursor:text; line-height:1.2; }
-  #navbtns { position:absolute; left:0; top:50%; transform:translateY(-50%); display:flex; gap:6px; }
-  .navbtn { width:36px; min-width:36px; height:36px; min-height:36px; border-radius:8px; padding:0; color:var(--text); box-shadow:none; }
-  .navbtn:hover:not(:disabled) { background:var(--accent); border-color:var(--accent); color:var(--accentText); }
-  .navbtn:disabled { opacity:.3; cursor:default; box-shadow:none; }
+  #navbtns { display:flex; gap:2px; flex-shrink:0; }
+  .navbtn, #histbtns button, #topbtns button {
+    width:30px; height:30px; border-radius:6px; background:transparent; border:none; padding:0;
+    display:flex; align-items:center; justify-content:center; color:var(--dim); cursor:pointer; box-shadow:none;
+  }
+  .navbtn:hover:not(:disabled), #histbtns button:hover:not(:disabled), #topbtns button:hover { background:var(--hover); color:var(--text); }
+  .navbtn:disabled, #histbtns button:disabled { opacity:.3; cursor:default; }
+  #topbtns button.reading { background:var(--btn); color:var(--accent); }
   
   #focuskind { font-family:system-ui,sans-serif; font-size:11px; text-transform:uppercase; letter-spacing:.15em; color:var(--dim); margin-bottom:6px; }
   #focusbody { text-align:left; white-space:pre-wrap; font-size:var(--fsize); line-height:var(--lheight); margin:14px 0 6px; cursor:text; min-height:1.5em; max-height:20vh; overflow-y:auto; color:var(--text2); }
@@ -153,7 +158,7 @@
   #panels { flex:1; min-height:0; display:flex; flex-wrap:nowrap; justify-content:safe center; align-items:stretch; overflow-x:auto; padding:16px 30px 24px; animation:fadein .18s ease-out; }
   @keyframes fadein { from { opacity:0; transform:scale(.97); } to { opacity:1; transform:none; } }
   .panel { flex:0 0 clamp(320px, 28vw, 540px); background:var(--paper); border:1px solid var(--line); border-radius:10px; padding:28px 26px; margin:4px 0; cursor:pointer; display:flex; flex-direction:column; box-shadow:0 6px 18px var(--shadow); transition:transform .12s, background .12s; overflow:hidden; position:relative; }
-  .panel:hover { transform:translateY(-4px); background:var(--paper2); }
+  .panel:hover { transform:translateY(-2px); background:var(--paper2); box-shadow:0 6px 18px var(--shadow); }
   .panel h4 { margin:0 0 14px; text-align:center; font-size:1.35em; font-weight:bold; min-height:1.2em; }
   .panel h4:empty::before { content:"untitled"; color:var(--ph); font-style:italic; font-weight:normal; }
   .panel .pdel { position:absolute; top:8px; right:10px; color:var(--dim); cursor:pointer; font-size:13px; font-family:system-ui,sans-serif; visibility:hidden; z-index:2; padding:2px 5px; border-radius:4px; }

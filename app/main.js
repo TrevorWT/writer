@@ -19,7 +19,7 @@ document.getElementById('hintnew').innerHTML = icon('plus', 14) + ' New Story';
 document.getElementById('newtag').innerHTML = icon('plus', 14);
 document.getElementById('undobtn').innerHTML = icon('undo', 14);
 document.getElementById('redobtn').innerHTML = icon('redo', 14);
-document.getElementById('modebtn').innerHTML = icon('pencil', 13) + ' editing';
+document.getElementById('modebtn').innerHTML = icon('pencil', 15);
 document.getElementById('storyinfobtn').innerHTML = icon('pencil', 12);
 document.getElementById('historybtn').innerHTML = icon('history', 12);
 document.getElementById('snapbtn').innerHTML = icon('camera', 13) + ' Snapshot now';
@@ -474,9 +474,11 @@ function render() {
   }
   $('main').classList.toggle('writing', !f.children.length && (f.depth > 0 || !!currentTag));
   $('main').classList.toggle('hidepanels', panelsHidden && f.children.length > 0);
-  $('panelsbtn').innerHTML = (panelsHidden ? icon('square', 13) : icon('columns', 13)) + ' panels';
+  $('panelsbtn').innerHTML = panelsHidden ? icon('square', 15) : icon('columns', 15);
+  $('panelsbtn').title = panelsHidden ? 'Show the section panels' : 'Hide the section panels';
   $('gridbtn').hidden = !has || !focusHasChildren() || panelsHidden;
-  $('gridbtn').innerHTML = layout.grid ? icon('rows', 13) + ' row' : icon('grid', 13) + ' grid';
+  $('gridbtn').innerHTML = layout.grid ? icon('rows', 15) : icon('grid', 15);
+  $('gridbtn').title = layout.grid ? 'Switch to row view' : 'Switch to grid view';
   $('main').classList.toggle('grid', !!layout.grid);
   const ft = $('focustitle');
   const titleEditable = f.depth > 0 && !readonly;
@@ -1022,7 +1024,8 @@ makeGrip($('notesgrip'), ev => innerWidth - ev.clientX, 'notesw', 260, Math.roun
 $('modebtn').onclick = () => {
   readonly = !readonly;
   const b = $('modebtn');
-  b.innerHTML = readonly ? icon('book', 13) + ' reading' : icon('pencil', 13) + ' editing';
+  b.innerHTML = readonly ? icon('book', 15) : icon('pencil', 15);
+  b.title = readonly ? 'Reading mode - click to edit' : 'Editing mode - click for read-only';
   b.classList.toggle('reading', readonly);
   render();
 };
