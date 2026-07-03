@@ -299,15 +299,14 @@ window.addEventListener('unhandledrejection', e => reportErr('async: ' + (e.reas
         <button id="prevbtn" class="navbtn" title="Previous sibling"></button>
         <button id="upbtn" class="navbtn" title="Up a level (Esc)"></button>
         <button id="nextbtn" class="navbtn" title="Next sibling"></button>
-        <span class="navsep"></span>
-        <button id="addleftbtn" class="navbtn" title="New section before this one"></button>
-        <button id="addrightbtn" class="navbtn" title="New section after this one"></button>
       </div>
       <div id="focustitle"></div>
     </div>
     <div id="focusbody"></div>
     <div id="backlinks" hidden></div>
   </div>
+  <div class="edgeadd" id="edgeleft" hidden title="New scene before this one"><div class="ghostpanel"><span class="ghostplus">+</span></div></div>
+  <div class="edgeadd" id="edgeright" hidden title="New scene after this one"><div class="ghostpanel"><span class="ghostplus">+</span></div></div>
   <div id="upzone" hidden><span id="upzoneicon"></span> Drop here to move up a level</div>
   <div id="panels"></div>
   <div id="timeline" hidden><div id="track"></div></div>
@@ -322,9 +321,9 @@ window.addEventListener('unhandledrejection', e => reportErr('async: ' + (e.reas
   <div id="hint">
     <div id="hinttitle">Open a folder to begin.</div>
     <div id="hintactions">
-      <button id="hintopen" type="button"></button>
+      <button id="hintopen" class="primary" type="button"></button>
       <button id="hintsample" type="button"></button>
-      <button id="hintnew" type="button" hidden></button>
+      <button id="hintnew" class="primary" type="button" hidden></button>
     </div>
     <small>Each story is a folder of plain markdown - Obsidian-compatible.<br>Click a panel to open it. Ctrl+scroll up over a panel to dive in, ctrl+scroll down to back out.<br>Layers name themselves: leaves are scenes; nest inside one and it becomes a chapter, then a part, then a book.<br>Tagged names auto-link everywhere they appear.</small>
   </div>

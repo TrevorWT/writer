@@ -27,8 +27,7 @@ document.getElementById('upzoneicon').innerHTML = icon('arrowup', 16);
 document.getElementById('upbtn').innerHTML = icon('arrowup', 18);
 document.getElementById('prevbtn').innerHTML = icon('chevleft', 18);
 document.getElementById('nextbtn').innerHTML = icon('chevright', 18);
-document.getElementById('addleftbtn').innerHTML = icon('chevleft', 12) + icon('plus', 15);
-document.getElementById('addrightbtn').innerHTML = icon('plus', 15) + icon('chevright', 12);
+
 document.getElementById('statsbtn').innerHTML = icon('chart', 17);
 
 const KIND = ['Story', 'Part', 'Chapter', 'Scene', 'Page', 'Section', 'Section'];
@@ -430,6 +429,9 @@ function render() {
     const i = par ? par.children.indexOf(path[path.length - 1]) : -1;
     $('prevbtn').disabled = !par || i <= 0;
     $('nextbtn').disabled = !par || i < 0 || i >= par.children.length - 1;
+    const sceneView = has && path.length > 1 && !focus().children.length;
+    $('edgeleft').hidden = !sceneView;
+    $('edgeright').hidden = !sceneView;
   }
   $('histbtns').hidden = !has || !!currentTag;
   $('panelsbtn').hidden = !has || !focusHasChildren();
@@ -989,8 +991,8 @@ function addSibling(after) {
   path[path.length - 1] = node;    // land in the fresh section, ready to write
   save(); render();
 }
-$('addleftbtn').onclick = () => addSibling(false);
-$('addrightbtn').onclick = () => addSibling(true);
+$('edgeleft').onclick = () => addSibling(false);
+$('edgeright').onclick = () => addSibling(true);
 $('panelsbtn').onclick = () => { panelsHidden = !panelsHidden; render(); };
 $('gridbtn').onclick = () => { layout.grid = !layout.grid; saveLayout(); render(); };
 
