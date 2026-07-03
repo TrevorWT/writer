@@ -2011,6 +2011,7 @@ async function openStats() {
     sel.appendChild(o);
   }
   sel.value = storyName && [...sel.options].some(o => o.value === storyName) ? storyName : '*';
+  $('readview').hidden = true;   // stats and preview share the overlay slot
   $('statsview').hidden = false;
   renderStats();
 }
@@ -2363,6 +2364,7 @@ function buildReadBar() {
 $('readbtn').onclick = () => {
   if (!$('readview').hidden) { $('readview').hidden = true; return; }
   if (!storyTree) return;
+  $('statsview').hidden = true;   // stats and preview share the overlay slot
   buildReadBar();
   renderReadDoc();
   $('readview').hidden = false;
