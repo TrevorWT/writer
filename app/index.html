@@ -110,6 +110,13 @@ window.addEventListener('unhandledrejection', e => reportErr('async: ' + (e.reas
               <option value="">Blank line</option>
             </select>
           </label>
+          <label>Default export folder
+            <div class="pathrow">
+              <input type="text" id="set-export-dir" readonly placeholder="Story folder">
+              <button type="button" id="set-export-dir-btn">Change</button>
+              <button type="button" id="set-export-dir-clear">Clear</button>
+            </div>
+          </label>
           <label class="checkrow"><input type="checkbox" id="set-export-smf"> Standard Manuscript Format for DOCX</label>
           <label class="checkrow"><input type="checkbox" id="set-export-titlepage"> Include title page</label>
           <label>Default author
@@ -190,6 +197,12 @@ window.addEventListener('unhandledrejection', e => reportErr('async: ' + (e.reas
     <label style="display:flex;align-items:center;gap:8px;color:var(--text)">
       <input type="checkbox" id="ex-titlepage" checked style="width:auto;margin:0">Title page (author, contact, word count)
     </label>
+    <label>Export folder
+      <div class="pathrow">
+        <input type="text" id="ex-dir" readonly placeholder="Story folder">
+        <button type="button" id="ex-dir-btn">Change</button>
+      </div>
+    </label>
     <label>Include per layer</label>
     <div id="ex-layers"></div>
     <div class="btns">
@@ -199,8 +212,18 @@ window.addEventListener('unhandledrejection', e => reportErr('async: ' + (e.reas
   </form>
 </dialog>
 
-<dialog id="newstorydlg">
-  <form id="newstoryform">
+<dialog id="askdlg">
+  <form id="askform" method="dialog">
+    <div id="askmsg" style="white-space:pre-wrap;margin-bottom:14px;color:var(--text);max-width:420px"></div>
+    <input type="text" id="askinput" autocomplete="off">
+    <div class="btns">
+      <button type="button" id="askcancel">Cancel</button>
+      <button type="submit" id="askok">OK</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="newstorydlg">  <form id="newstoryform">
     <h2>New story</h2>
     <label>Name
       <input type="text" id="ns-name" required autocomplete="off">
@@ -246,17 +269,24 @@ window.addEventListener('unhandledrejection', e => reportErr('async: ' + (e.reas
   </div>
   <div id="panels"></div>
   <div id="timeline" hidden><div id="track"></div></div>
-  <div id="statusrow"><span id="savestatus">No story open</span><span id="goalpill" hidden></span></div>
-  <div id="hint">Open a folder to begin.<br><small>Each story is a folder of plain markdown - Obsidian-compatible.<br>Click a panel to open it. Ctrl+scroll up over a panel to dive in, ctrl+scroll down to back out.<br>Layers name themselves: leaves are scenes; nest inside one and it becomes a chapter, then a part, then a book.<br>Tagged names auto-link everywhere they appear.</small></div>
-</div>
-
-<div id="statsview" hidden>
-  <div id="statshead">
-    <h2>Statistics</h2>
-    <select id="statssel"></select>
-    <button id="statsclose" title="Close (Esc)"></button>
+  <div id="statsview" hidden>
+    <div id="statshead">
+      <h2>Statistics</h2>
+      <select id="statssel"></select>
+      <button id="statsclose" title="Close (Esc)"></button>
+    </div>
+    <div id="statsbody"></div>
   </div>
-  <div id="statsbody"></div>
+  <div id="statusrow"><span id="savestatus">No story open</span><span id="goalpill" hidden></span></div>
+  <div id="hint">
+    <div id="hinttitle">Open a folder to begin.</div>
+    <div id="hintactions">
+      <button id="hintopen" type="button"></button>
+      <button id="hintsample" type="button"></button>
+      <button id="hintnew" type="button" hidden></button>
+    </div>
+    <small>Each story is a folder of plain markdown - Obsidian-compatible.<br>Click a panel to open it. Ctrl+scroll up over a panel to dive in, ctrl+scroll down to back out.<br>Layers name themselves: leaves are scenes; nest inside one and it becomes a chapter, then a part, then a book.<br>Tagged names auto-link everywhere they appear.</small>
+  </div>
 </div>
 
 <div id="annotpop" hidden>
@@ -266,8 +296,8 @@ window.addEventListener('unhandledrejection', e => reportErr('async: ' + (e.reas
     <button id="annotdone" style="margin-left:auto">Done</button>
   </div>
 </div>
-<div id="notestab" hidden>Notes</div>
 <div id="notespanel">
+  <div id="notestab" hidden>Notes</div>
   <div id="notesgrip" title="Drag to resize"></div>
   <div class="nhead">Notes<b id="noteslabel"></b><span class="nclose" title="Close">x</span></div>
   <div id="notestext" contenteditable="plaintext-only"></div>

@@ -13,6 +13,9 @@ document.getElementById('tsicon').innerHTML = icon('search', 13);
 document.getElementById('samplebtn').innerHTML = icon('book', 14);
 document.getElementById('openbtn').innerHTML = icon('folder', 14);
 document.getElementById('newstory').innerHTML = icon('plus', 14);
+document.getElementById('hintopen').innerHTML = icon('folder', 14) + ' Open Library Folder';
+document.getElementById('hintsample').innerHTML = icon('book', 14) + ' Open Sample Library';
+document.getElementById('hintnew').innerHTML = icon('plus', 14) + ' New Story';
 document.getElementById('newtag').innerHTML = icon('plus', 14);
 document.getElementById('undobtn').innerHTML = icon('undo', 14);
 document.getElementById('redobtn').innerHTML = icon('redo', 14);
@@ -36,6 +39,28 @@ let allCats = [];          // categories present in this story
 
 const $ = id => document.getElementById(id);
 const kindName = depth => currentTag ? (depth === 0 ? currentTag.cat : 'Section') : (KIND[depth] || 'Section');
+
+// in-app replacements for confirm/prompt/alert — Tauri makes the native ones
+// async or unavailable, so window.* versions are unusable in the packaged app
+function askDialog({ message, input = false, def = '', alertOnly = false }) {
+  return new Promise(resolve => {
+    const dlg = $('askdlg');
+    $('askmsg').textContent = message;
+    const inp = $('askinput');
+    inp.hidden = !input;
+    inp.value = def;
+    $('askcancel').hidden = alertOnly;
+    let ok = false;
+    $('askform').onsubmit = () => { ok = true; };
+    $('askcancel').onclick = () => { ok = false; dlg.close(); };
+    dlg.onclose = () => resolve(ok ? (input ? inp.value : true) : (input ? null : false));
+    dlg.showModal();
+    if (input) { inp.focus(); inp.select(); }
+  });
+}
+const appConfirm = m => askDialog({ message: m });
+const appPrompt = (m, def = '') => askDialog({ message: m, input: true, def });
+const appAlert = m => askDialog({ message: m, alertOnly: true });
 
 function setStatus(text, err = false) {
   $('savestatus').textContent = text;
@@ -258,7 +283,15 @@ let panelsHidden = false;
 
 function render() {
   const has = !!tree;
+  $('main').classList.toggle('empty', !has);
   $('hint').hidden = has;
+  $('panels').hidden = !has;
+  if (!has) {
+    $('hinttitle').textContent = libPath ? 'Choose a story or create a new one.' : 'Open a folder to begin.';
+    $('hintopen').hidden = !!libPath;
+    $('hintsample').hidden = !!libPath;
+    $('hintnew').hidden = !libPath;
+  }
   $('focus').hidden = !has;
   $('modebtn').hidden = !has;
   $('topsearch').hidden = !has;
@@ -380,7 +413,10 @@ function renderNotes() {
     list.appendChild(row);
   });
 }
-$('notestab').onclick = () => { $('notespanel').classList.add('open'); $('notestext').focus(); };
+$('notestab').onclick = () => {
+  const open = $('notespanel').classList.toggle('open');
+  if (open) $('notestext').focus();
+};
 document.querySelector('#notespanel .nclose').onclick = () => $('notespanel').classList.remove('open');
 $('notestext').oninput = () => { focus().notes = $('notestext').innerText.trim(); queueSave(); };
 $('notestext').onblur = () => { clearTimeout(saveTimer); save(); $('notestab').classList.toggle('has', !!focus().notes); };
@@ -583,7 +619,14 @@ function gapEl(parent, index) {
   g.className = 'gap';
   const plus = document.createElement('div');
   plus.className = 'plus';
-  plus.textContent = '+';
+  if (parent.children.length === 0) {
+    // the only affordance on an empty section - make it unmissable
+    plus.classList.add('big');
+    plus.textContent = '+ Add a ' + (currentTag ? 'section' : LADDER[0].toLowerCase()) + ' inside';
+    g.classList.add('bigwrap');
+  } else {
+    plus.textContent = '+';
+  }
   plus.title = 'Add section';
   plus.onclick = () => addChild(parent, index);
   g.appendChild(plus);
@@ -701,13 +744,13 @@ function makeDropTarget(el, getTarget) {   // getTarget() -> [parent, index]
 
 // deletion: trivial sections get a confirm; anything substantial requires
 // typing DELETE so a stray click can't erase real writing
-function deleteNode(node) {
+async function deleteNode(node) {
   const wc = wordCount(node);
   const label = labelOf(node);
   if (wc >= 100 || node.children.length) {
     const detail = `${label}${node.children.length ? ` and its ${node.children.length} section${node.children.length > 1 ? 's' : ''}` : ''} — ${wc.toLocaleString()} words`;
-    if (prompt(`This permanently deletes ${detail}.\n\nType DELETE to confirm:`) !== 'DELETE') return;
-  } else if (!confirm(`Delete ${label}?`)) return;
+    if (await appPrompt(`This permanently deletes ${detail}.\n\nType DELETE to confirm:`) !== 'DELETE') return;
+  } else if (!(await appConfirm(`Delete ${label}?`))) return;
   pushUndo();
   (function remove(parent) {
     const i = parent.children.indexOf(node);
@@ -734,6 +777,7 @@ const defaultPrefs = () => ({
   goal: 0,
   exportFormat: 'docx',
   exportSep: '* * *',
+  exportDir: '',
   exportSmf: true,
   exportTitlepage: true,
   author: '',
@@ -924,7 +968,7 @@ function doSearch(q) {
   const ql = q.trim().toLowerCase();
   searchHits = [];
   searchSel = 0;
-  if (ql) {
+  if (ql && storyTree) {
     (function walk(n, anc) {
       for (const c of n.children) {
         const p = [...anc, c];
@@ -989,7 +1033,8 @@ function openReplace() {
 function doReplaceAll() {
   const q = $('searchinput').value.trim();
   const rep = $('replaceinput').value;
-  if (!q || !storyTree) return;
+  if (!storyTree) return;
+  if (!q) { setStatus('Type what to find in the search box first', true); $('searchinput').focus(); return; }
   const re = new RegExp(escRe(q), 'gi');
   pushUndo();
   let count = 0;
@@ -1006,14 +1051,32 @@ function doReplaceAll() {
   if (wasTag) { currentTag = null; }   // make save() write the story, not the open tag page
   const wasTree = tree;
   tree = storyTree;
-  save().finally(() => {
+  save().finally(async () => {
     if (wasTag) { currentTag = wasTag; tree = wasTree; }
+    // replacing a tagged name should carry the tag file along, or the tag
+    // page and explorer keep the old name
+    const newName = rep.trim();
+    const tagHit = newName && [...tagIndex.keys()].find(n => n.toLowerCase() === q.toLowerCase());
+    if (tagHit && !tagIndex.has(newName) &&
+        await appConfirm(`"${tagHit}" is a tag. Rename the tag itself to "${newName}" too?`)) {
+      const cat = tagIndex.get(tagHit);
+      try {
+        await FS.writeText(tagFilePath(cat, newName), await FS.readText(tagFilePath(cat, tagHit)));
+        await FS.remove(tagFilePath(cat, tagHit));
+        if (currentTag && currentTag.name === tagHit) { currentTag = null; currentTagPath = null; tree = storyTree; path = [storyTree]; }
+        await refreshTags();
+      } catch (err) { reportErr('tag rename failed: ' + (err.stack || err)); }
+    }
     render();
     doSearch(q);
     setStatus(`Replaced ${count} occurrence${count === 1 ? '' : 's'}`);
   });
 }
-$('replaceall').onmousedown = e => { e.preventDefault(); doReplaceAll(); };
+$('replaceall').onmousedown = e => {
+  e.preventDefault();
+  setStatus('Replace: clicked');
+  try { doReplaceAll(); } catch (err) { reportErr('replace failed: ' + (err.stack || err)); }
+};
 $('replaceinput').onkeydown = e => {
   if (e.key === 'Enter') { e.preventDefault(); doReplaceAll(); }
   else if (e.key === 'Escape') closeSearch();
@@ -1152,7 +1215,7 @@ async function openTemplate(cat) {
 async function openTagByName(name) {
   let cat = tagIndex.get(name);
   if (!cat) {
-    cat = prompt(`New tag "${name}" — category? (character, location, item, …)`, 'character');
+    cat = await appPrompt(`New tag "${name}" — category? (character, location, item, …)`, 'character');
     if (!cat) return;
     cat = cat.trim().toLowerCase();
   }
@@ -1161,21 +1224,21 @@ async function openTagByName(name) {
 // tags themselves are created from the writing (highlight -> right-click);
 // the explorer builds the scaffolding: categories and their templates
 $('newtag').onclick = async () => {
-  const cat = prompt('New category name (character, location, item, …):');
+  const cat = await appPrompt('New category name (character, location, item, …):');
   if (!cat) return;
   await openTemplate(cat.trim().toLowerCase());
   await refreshTags();
 };
 
 async function renameTag(cat, oldName) {
-  const newName = (prompt(`Rename tag "${oldName}" to:`, oldName) || '').trim();
+  const newName = ((await appPrompt(`Rename tag "${oldName}" to:`, oldName)) || '').trim();
   if (!newName || newName === oldName) return;
-  if (tagIndex.has(newName)) { alert('A tag with that name already exists.'); return; }
+  if (tagIndex.has(newName)) { await appAlert('A tag with that name already exists.'); return; }
   const oldP = tagFilePath(cat, oldName), newP = tagFilePath(cat, newName);
   try {
     await FS.writeText(newP, await FS.readText(oldP));
     await FS.remove(oldP);
-  } catch (e) { alert('Rename failed: ' + e.message); return; }
+  } catch (e) { await appAlert('Rename failed: ' + e.message); return; }
   // [[bracket]] references always follow the rename
   const reB = new RegExp('\\[\\[' + escRe(oldName) + '\\]\\]', 'g');
   (function wb(n) {
@@ -1187,7 +1250,7 @@ async function renameTag(cat, oldName) {
   const reW = new RegExp('\\b' + escRe(oldName) + '\\b', 'g');
   let plain = 0;
   (function count(n) { plain += (n.body.match(reW) || []).length; n.children.forEach(count); })(storyTree);
-  if (plain && confirm(`Also replace ${plain} plain mention${plain === 1 ? '' : 's'} of "${oldName}" with "${newName}" in the story text?`)) {
+  if (plain && await appConfirm(`Also replace ${plain} plain mention${plain === 1 ? '' : 's'} of "${oldName}" with "${newName}" in the story text?`)) {
     pushUndo();
     (function rw(n) { n.body = n.body.replace(reW, newName); n.children.forEach(rw); })(storyTree);
   }
@@ -1201,7 +1264,7 @@ async function renameTag(cat, oldName) {
 }
 
 async function deleteTag(cat, name) {
-  if (!confirm(`Delete tag "${name}"?`)) return;
+  if (!(await appConfirm(`Delete tag "${name}"?`))) return;
   try {
     const p = tagFilePath(cat, name);
     const text = await FS.readText(p);
@@ -1300,6 +1363,18 @@ document.addEventListener('contextmenu', e => {
     });
   }
 
+  const short = name.length > 24 ? name.slice(0, 24) + '...' : name;
+  addItem(`Find "${short}"`, () => {
+    openSearch();
+    $('searchinput').value = name;
+    doSearch(name);
+  });
+  addItem(`Replace "${short}"...`, () => {
+    openReplace();
+    $('searchinput').value = name;
+    doSearch(name);
+    $('replaceinput').focus();
+  });
   // annotate: selection inside the editable body, not already annotated
   if (inBody && !sel.anchorNode.parentElement.closest('mark.annot')) {
     addItem('🗒 Add note to selection', () => { restore(); annotateSelection(getSelection()); });
@@ -1321,9 +1396,9 @@ document.addEventListener('contextmenu', e => {
     const nw = document.createElement('div');
     nw.className = 'item new';
     nw.textContent = 'new category…';
-    nw.onclick = () => {
+    nw.onclick = async () => {
       closeCtx();
-      const cat = prompt('Category name:');
+      const cat = await appPrompt('Category name:');
       if (cat) createTag(cat.trim().toLowerCase(), name);
     };
     menu.appendChild(nw);
@@ -1346,7 +1421,7 @@ function annotateSelection(sel) {
   mark.className = 'annot';
   mark.dataset.note = '';
   try { range.surroundContents(mark); }
-  catch { alert('Select plain text only (a selection can\'t cut across a link or another note).'); return; }
+  catch { appAlert('Select plain text only (a selection can\'t cut across a link or another note).'); return; }
   sel.removeAllRanges();
   focus().body = domToMd($('focusbody'));
   queueSave();
@@ -1583,16 +1658,19 @@ async function openLibrary(path) {
   if (FS.native) localStorage.setItem('writer-lib', path);
   $('newstory').hidden = false;
   await listStories();
-  setStatus('Library open');
+  setStatus('');
+  render();
 }
 $('samplebtn').onclick = async () => {
   if (await FS.exists('sample-library').catch(() => false)) await openLibrary('sample-library');
-  else alert('Sample library was not found next to the app.');
+  else appAlert('Sample library was not found next to the app.');
 };
 $('openbtn').onclick = async () => {
   const p = await FS.pickFolder();
   if (p) await openLibrary(p);
 };
+$('hintopen').onclick = () => $('openbtn').click();
+$('hintsample').onclick = () => $('samplebtn').click();
 async function listStories() {
   const list = $('storylist');
   list.innerHTML = '';
@@ -1608,7 +1686,7 @@ async function listStories() {
     del.title = 'Delete story';
     del.onclick = async e => {
       e.stopPropagation();
-      if (prompt(`This permanently deletes the story "${entry.name}" and ALL its files.\n\nType the story name to confirm:`) !== entry.name) return;
+      if (await appPrompt(`This permanently deletes the story "${entry.name}" and ALL its files.\n\nType the story name to confirm:`) !== entry.name) return;
       await FS.removeDir(FS.join(libPath, entry.name));
       await listStories();
     };
@@ -1676,7 +1754,7 @@ async function openStory(name, el) {
   await refreshTags();
   render();
   await updateRestoreButton();
-  setStatus(text.trim() ? 'Opened - first save keeps original story.md in .trash' : 'Opened');
+  setStatus('');
   // watch for external edits (Obsidian, scripts) — reload unless we just saved
   if (unwatchStory) { unwatchStory(); unwatchStory = null; }
   unwatchStory = await FS.watch(storyPath, () => {
@@ -1702,14 +1780,14 @@ $('backlib').onclick = () => {
   if (unwatchStory) { unwatchStory(); unwatchStory = null; }
   storyPath = null; storyName = ''; tree = null; storyTree = null; currentTag = null;
   $('restorebtn').hidden = true;
-  setStatus('No story open');
+  setStatus('');
   render();
 };
 $('storyname').onclick = () => openStory(storyName);
 $('restorebtn').onclick = async () => {
   const p = await latestStoryBackup();
   if (!p) return;
-  if (!confirm('Restore the latest story.md backup from .trash? Current story.md will be replaced.')) return;
+  if (!(await appConfirm('Restore the latest story.md backup from .trash? Current story.md will be replaced.'))) return;
   await FS.writeText(FS.join(storyPath, 'story.md'), await FS.readText(p));
   storyBackup = null;
   await openStory(storyName);
@@ -1736,6 +1814,7 @@ $('newstory').onclick = () => {
   $('ns-custom').hidden = $('ns-template').value !== 'custom';
   $('newstorydlg').showModal();
 };
+$('hintnew').onclick = () => $('newstory').click();
 $('ns-template').onchange = () => { $('ns-custom').hidden = $('ns-template').value !== 'custom'; };
 const TEMPLATES = { blank: [], short: [3], novel: [3, 4, 2], epic: [3, 3, 3, 2] };
 function buildLevels(counts, depth = 1) {
@@ -1832,12 +1911,44 @@ function download(name, text, type) {
   a.click();
   URL.revokeObjectURL(a.href);
 }
+function exportDir() {
+  return FS.native ? (prefs.exportDir || storyPath || libPath) : '';
+}
+function showExportDir() {
+  const value = FS.native ? (exportDir() || '') : 'Browser downloads';
+  if ($('ex-dir')) $('ex-dir').value = value;
+  if ($('set-export-dir')) $('set-export-dir').value = prefs.exportDir || '';
+}
+async function chooseExportDir() {
+  if (!FS.native) { appAlert('In the browser version, exports use the browser downloads folder.'); return; }
+  const p = await FS.pickFolder();
+  if (!p) return;
+  prefs.exportDir = p;
+  savePrefs();
+  showExportDir();
+}
+async function writeExport(name, data, type) {
+  try {
+    if (!FS.native) { download(name, data, type); return; }
+    const dir = exportDir();
+    if (!dir) { download(name, data, type); return; }
+    const path = FS.join(dir, name);
+    if (data instanceof Uint8Array) await FS.writeBytes(path, data);
+    else await FS.writeText(path, data);
+    setStatus('Exported to ' + path);
+  } catch (e) {
+    console.error(e);
+    setStatus('Export failed - check console', true);
+    throw e;
+  }
+}
 $('exportbtn').onclick = () => {
   if (!storyTree) return;
   $('ex-format').value = prefs.exportFormat;
   $('ex-sep').value = prefs.exportSep;
   $('ex-smf').checked = !!prefs.exportSmf;
   $('ex-titlepage').checked = !!prefs.exportTitlepage;
+  showExportDir();
   // one row per layer in this story: check what compiles (titles as headings,
   // contents as text). Defaults: containers = title only, scenes = prose only.
   const H = treeHeight(storyTree);
@@ -1862,7 +1973,7 @@ $('exportbtn').onclick = () => {
   }
   $('exportdlg').showModal();
 };
-$('exportform').onsubmit = e => {
+$('exportform').onsubmit = async e => {
   e.preventDefault();
   prefs.exportFormat = $('ex-format').value;
   prefs.exportSep = $('ex-sep').value;
@@ -1891,17 +2002,18 @@ $('exportform').onsubmit = e => {
       smf: $('ex-smf').checked,
       author: storyMeta.author || (tp && tp.by) || '',
     });
-    download(safe + '.docx', bytes, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    await writeExport(safe + '.docx', bytes, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
   } else if ($('ex-format').value === 'html') {
-    download(safe + '.html', mdToHtml(md, title, tp), 'text/html');
+    await writeExport(safe + '.html', mdToHtml(md, title, tp), 'text/html');
   } else {
     const head = tp
       ? (tp.contact.length ? tp.contact.join('\n') + '\n\n' : '') +
         `approx. ${tp.approx} words\n\n# ${title}\n\n${tp.by ? `by ${tp.by}\n\n` : ''}---\n\n`
       : `# ${title}\n\n`;
-    download(safe + '.md', head + md + '\n', 'text/markdown');
+    await writeExport(safe + '.md', head + md + '\n', 'text/markdown');
   }
 };
+$('ex-dir-btn').onclick = chooseExportDir;
 
 // ---- settings ----
 document.querySelectorAll('#settingsnav button').forEach(btn => {
@@ -1912,6 +2024,12 @@ document.querySelectorAll('#settingsnav button').forEach(btn => {
   };
 });
 $('set-new-template').onchange = () => { $('set-custom-row').hidden = $('set-new-template').value !== 'custom'; };
+$('set-export-dir-btn').onclick = chooseExportDir;
+$('set-export-dir-clear').onclick = () => {
+  prefs.exportDir = '';
+  savePrefs();
+  showExportDir();
+};
 $('settingsbtn').onclick = () => {
   document.querySelector('#settingsnav button[data-settings-tab="files"]').click();
   $('set-libpath').value = libPath || '';
@@ -1922,6 +2040,7 @@ $('settingsbtn').onclick = () => {
   $('set-custom-row').hidden = prefs.newTemplate !== 'custom';
   $('set-export-format').value = prefs.exportFormat;
   $('set-export-sep').value = prefs.exportSep;
+  showExportDir();
   $('set-export-smf').checked = !!prefs.exportSmf;
   $('set-export-titlepage').checked = !!prefs.exportTitlepage;
   $('set-goal').value = +prefs.goal || 0;
@@ -1945,6 +2064,7 @@ $('settingsform').onsubmit = () => {
     goal: Math.max(0, +$('set-goal').value || 0),
     exportFormat: $('set-export-format').value,
     exportSep: $('set-export-sep').value,
+    exportDir: prefs.exportDir || '',
     exportSmf: $('set-export-smf').checked,
     exportTitlepage: $('set-export-titlepage').checked,
     author: $('set-author').value.trim(),

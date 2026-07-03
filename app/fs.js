@@ -19,6 +19,7 @@ function tauriBackend() {
     },
     readText: p => t.fs.readTextFile(p),
     writeText: (p, text) => t.fs.writeTextFile(p, text),
+    writeBytes: (p, bytes) => t.fs.writeFile(p, bytes),
     async readDir(p) {
       return (await t.fs.readDir(p)).map(e => ({ name: e.name, isDir: e.isDirectory }));
     },
@@ -70,6 +71,7 @@ function webBackend() {
       await w.write(text);
       await w.close();
     },
+    writeBytes: null,
     async readDir(p) {
       const h = await dirHandle(p, false);
       const out = [];
