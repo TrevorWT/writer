@@ -19,7 +19,7 @@ document.getElementById('hintnew').innerHTML = icon('plus', 14) + ' New Story';
 document.getElementById('newtag').innerHTML = icon('plus', 14);
 document.getElementById('undobtn').innerHTML = icon('undo', 14);
 document.getElementById('redobtn').innerHTML = icon('redo', 14);
-document.getElementById('modebtn').innerHTML = icon('pencil', 15);
+document.getElementById('modebtn').innerHTML = icon('pencil', 15) + ' Edit';
 document.getElementById('view-row').innerHTML = icon('columns', 14);
 document.getElementById('view-grid').innerHTML = icon('grid', 14);
 document.getElementById('view-hidden').innerHTML = icon('square', 14);
@@ -73,6 +73,14 @@ const appAlert = m => askDialog({ message: m, alertOnly: true });
 function setStatus(text, err = false) {
   $('savestatus').textContent = text;
   $('savestatus').classList.toggle('err', err);
+}
+function updateSectionStatus(kindLabel, wc) {
+  const el = $('sectionstatus');
+  if (!tree) { el.hidden = true; return; }
+  el.hidden = false;
+  const words = `${wc.toLocaleString()} word${wc === 1 ? '' : 's'}`;
+  el.textContent = `${kindLabel || 'Section'} - ${words}`;
+  el.title = storyPath || libPath || '';
 }
 
 // generated numbering: layer names hang from the BOTTOM of the tree — leaves
@@ -418,12 +426,17 @@ function render() {
   $('panels').hidden = !has;
   if (!has) {
     $('hinttitle').textContent = libPath ? 'Choose a story or create a new one.' : 'Open a folder to begin.';
+    $('hinttext').textContent = libPath
+      ? 'Pick an existing story, or create a new Markdown story folder.'
+      : 'Stories are Markdown folders with layered sections.';
     $('hintopen').hidden = !!libPath;
     $('hintsample').hidden = !!libPath;
     $('hintnew').hidden = !libPath;
+    $('sectionstatus').hidden = true;
   }
   $('focus').hidden = !has;
   $('modebtn').hidden = !has;
+  $('topbtns').hidden = !has;
   $('topsearch').hidden = !has;
   $('navbtns').hidden = !has;
   $('navbtns').style.visibility = has && (path.length > 1 || currentTag) ? 'visible' : 'hidden';
@@ -474,6 +487,7 @@ function render() {
     chip.onclick = () => setNodeStatus(f, STATUSES[(STATUSES.indexOf(f.status || '') + 1) % STATUSES.length]);
     fk.appendChild(chip);
   }
+  updateSectionStatus(kindLabel, wc);
   $('main').classList.toggle('writing', !f.children.length && (f.depth > 0 || !!currentTag));
   $('main').classList.toggle('hidepanels', panelsHidden && f.children.length > 0);
   $('viewseg').hidden = !has || !focusHasChildren();
@@ -638,6 +652,15 @@ function renderOutline() {
       const label = document.createElement('span');
       label.textContent = labelOf(c);
       label.style.cssText = 'flex:1;overflow:hidden;text-overflow:ellipsis';
+      const more = document.createElement('span');
+      more.className = 'rowmore';
+      more.innerHTML = icon('more', 13);
+      more.title = 'Section actions';
+      more.onclick = e => {
+        e.stopPropagation();
+        const r = more.getBoundingClientRect();
+        showSectionMenu(c, r.left, r.bottom + 4);
+      };
       const del = document.createElement('span');
       del.className = 'rowdel';
       del.textContent = '✕';
@@ -647,7 +670,7 @@ function renderOutline() {
         if (currentTag) { currentTag = null; currentTagPath = null; tree = storyTree; path = [storyTree]; }
         deleteNode(c);
       };
-      row.append(arrow, label, del);
+      row.append(arrow, label, more, del);
       row.onclick = () => {
         currentTag = null; currentTagPath = null; tree = storyTree;
         path = [storyTree, ...p];
@@ -704,6 +727,16 @@ function panelEl(node) {
   del.title = 'Delete';
   del.onclick = e => { e.stopPropagation(); deleteNode(node); };
   el.appendChild(del);
+  const more = document.createElement('span');
+  more.className = 'pmore';
+  more.innerHTML = icon('more', 14);
+  more.title = 'Section actions';
+  more.onclick = e => {
+    e.stopPropagation();
+    const r = more.getBoundingClientRect();
+    showSectionMenu(node, r.left, r.bottom + 4);
+  };
+  el.appendChild(more);
   const h = document.createElement('h4');
   h.textContent = node.title;
   h.ondblclick = e => { e.stopPropagation(); editTitle(node, h); };
@@ -743,12 +776,13 @@ function panelEl(node) {
     if (e.target.isContentEditable) return;
     path.push(node); render();
   };
-  {
+  if (layout.grid) {
     const mkPlus = (cls, title, at) => {
       const gp = document.createElement('div');
       gp.className = 'gplus' + cls;
       gp.innerHTML = icon('plus', 12);
       gp.title = title;
+      gp.dataset.label = 'Add here';
       gp.onclick = e => {
         e.stopPropagation();
         const par = focus();
@@ -780,10 +814,13 @@ function gapEl(parent, index) {
     plus.classList.add('big');
     plus.textContent = '+ Add a ' + (currentTag ? 'section' : LADDER[0].toLowerCase()) + ' inside';
     g.classList.add('bigwrap');
-    plus.title = 'Add section';
-    plus.onclick = () => addChild(parent, index);
-    g.appendChild(plus);
+  } else {
+    plus.innerHTML = icon('plus', 12);
   }
+  plus.title = parent.children.length ? 'Add section here' : 'Add section';
+  plus.dataset.label = parent.children.length ? 'Add here' : '';
+  plus.onclick = () => addChild(parent, index);
+  g.appendChild(plus);
   makeDropTarget(g, () => [parent, index]);                 // drop BETWEEN panels = reorder
   return g;
 }
@@ -1044,7 +1081,7 @@ makeGrip($('notesgrip'), ev => innerWidth - ev.clientX, 'notesw', 260, Math.roun
 $('modebtn').onclick = () => {
   readonly = !readonly;
   const b = $('modebtn');
-  b.innerHTML = readonly ? icon('book', 15) : icon('pencil', 15);
+  b.innerHTML = readonly ? icon('book', 15) + ' Read' : icon('pencil', 15) + ' Edit';
   b.title = readonly ? 'Reading mode - click to edit' : 'Editing mode - click for read-only';
   b.classList.toggle('reading', readonly);
   render();
@@ -1496,6 +1533,42 @@ async function createTag(cat, name) {
 
 // ---- highlight -> right-click -> tag or annotate ----
 function closeCtx() { const m = $('ctxmenu'); if (m) m.remove(); }
+function placeCtx(menu, x, y) {
+  document.body.appendChild(menu);
+  const r = menu.getBoundingClientRect();
+  menu.style.left = Math.min(x, innerWidth - r.width - 8) + 'px';
+  menu.style.top = Math.min(y, innerHeight - r.height - 8) + 'px';
+}
+function showSectionMenu(node, x, y) {
+  closeCtx();
+  const menu = document.createElement('div');
+  menu.id = 'ctxmenu';
+  const head = document.createElement('div');
+  head.className = 'head';
+  head.textContent = labelOf(node);
+  menu.appendChild(head);
+  for (const s of STATUSES) {
+    const it = document.createElement('div');
+    it.className = 'item';
+    it.style.textTransform = 'none';
+    it.textContent = ((node.status || '') === s ? '* ' : '  ') + (s || 'no status');
+    it.onclick = () => { closeCtx(); setNodeStatus(node, s); };
+    menu.appendChild(it);
+  }
+  const nn = document.createElement('div');
+  nn.className = 'item';
+  nn.style.textTransform = 'none';
+  nn.textContent = node.nonum ? 'Include in numbering' : 'Exclude from numbering';
+  nn.onclick = () => { closeCtx(); node.nonum = !node.nonum; save(); render(); };
+  menu.appendChild(nn);
+  const dl = document.createElement('div');
+  dl.className = 'item';
+  dl.style.textTransform = 'none';
+  dl.textContent = 'Delete...';
+  dl.onclick = () => { closeCtx(); deleteNode(node); };
+  menu.appendChild(dl);
+  placeCtx(menu, x, y);
+}
 document.addEventListener('contextmenu', e => {
   closeCtx();
   if (!tree || !storyPath) return;
@@ -1505,6 +1578,11 @@ document.addEventListener('contextmenu', e => {
   // right-click on a panel (no text selected): section menu
   const panelHit = !name && e.target.closest('.panel');
   if (panelHit && e.target.closest('#panels')) {
+    e.preventDefault();
+    showSectionMenu(panelHit._node, e.clientX, e.clientY);
+    return;
+  }
+  if (false && panelHit && e.target.closest('#panels')) {
     const node = panelHit._node;
     e.preventDefault();
     const menu = document.createElement('div');

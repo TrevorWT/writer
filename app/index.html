@@ -298,7 +298,7 @@ window.addEventListener('unhandledrejection', e => reportErr('async: ' + (e.reas
     <span id="histbtns" hidden><button id="undobtn" title="Undo move/delete (Ctrl+Z)" disabled></button><button id="redobtn" title="Redo (Ctrl+Y)" disabled></button></span>
     <div id="crumbpath"></div>
     <div id="topsearch" hidden title="Search (Ctrl+P)"><span id="tsicon" style="display:flex"></span><input id="searchinput" placeholder="Search story..." autocomplete="off"><div id="searchdrop" hidden><div id="replacerow" hidden><input id="replaceinput" placeholder="Replace with..." autocomplete="off"><button id="replaceall" type="button">Replace all</button></div><div id="searchresults"></div></div></div>
-    <div id="topbtns"><div id="viewseg" hidden><button id="view-row" title="Row view"></button><button id="view-grid" title="Grid view"></button><button id="view-hidden" title="Hide panels (text only)"></button></div><button id="modebtn" hidden title="Toggle read-only (like Obsidian's reading view)"></button></div>
+    <div id="topbtns"><div id="viewseg" hidden><button id="view-row" title="Row view"></button><button id="view-grid" title="Grid view"></button><button id="view-hidden" title="Hide panels (text only)"></button></div><button id="modebtn" hidden title="Toggle read-only"></button></div>
   </div>
   <div id="focus" hidden>
     <div id="focuskind"></div>
@@ -308,8 +308,8 @@ window.addEventListener('unhandledrejection', e => reportErr('async: ' + (e.reas
     <div id="focusbody"></div>
     <div id="backlinks" hidden></div>
   </div>
-  <div class="edgeadd" id="edgeleft" hidden title="New scene before this one"><div class="ghostpanel"><span class="ghostplus">+</span></div></div>
-  <div class="edgeadd" id="edgeright" hidden title="New scene after this one"><div class="ghostpanel"><span class="ghostplus">+</span></div></div>
+  <div class="edgeadd" id="edgeleft" hidden title="New scene before this one"><div class="ghostpanel"><span class="ghostplus">+</span><span class="ghostlabel">New scene</span></div></div>
+  <div class="edgeadd" id="edgeright" hidden title="New scene after this one"><div class="ghostpanel"><span class="ghostplus">+</span><span class="ghostlabel">New scene</span></div></div>
   <div id="upzone" hidden><span id="upzoneicon"></span> Drop here to move up a level</div>
   <div id="panels"></div>
   <div id="timeline" hidden><div id="track"></div></div>
@@ -320,7 +320,7 @@ window.addEventListener('unhandledrejection', e => reportErr('async: ' + (e.reas
     </div>
     <div id="statsbody"></div>
   </div>
-  <div id="statusrow"><span id="savestatus">No story open</span><span id="goalpill" hidden></span></div>
+  <div id="statusrow"><span id="savestatus">No story open</span><span id="sectionstatus" hidden></span><span id="goalpill" hidden></span></div>
   <div id="hint">
     <div id="hinttitle">Open a folder to begin.</div>
     <div id="hintactions">
@@ -328,7 +328,7 @@ window.addEventListener('unhandledrejection', e => reportErr('async: ' + (e.reas
       <button id="hintsample" type="button"></button>
       <button id="hintnew" class="primary" type="button" hidden></button>
     </div>
-    <small>Each story is a folder of plain markdown - Obsidian-compatible.<br>Click a panel to open it. Ctrl+scroll up over a panel to dive in, ctrl+scroll down to back out.<br>Layers name themselves: leaves are scenes; nest inside one and it becomes a chapter, then a part, then a book.<br>Tagged names auto-link everywhere they appear.</small>
+    <small id="hinttext">Stories are Markdown folders with layered sections.</small>
   </div>
 </div>
 
