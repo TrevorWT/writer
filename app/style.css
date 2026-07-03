@@ -140,7 +140,7 @@
   
   #focuskind { font-family:system-ui,sans-serif; font-size:11px; text-transform:uppercase; letter-spacing:.15em; color:var(--dim); margin-bottom:6px; }
   #focusbody { text-align:left; white-space:pre-wrap; font-size:var(--fsize); line-height:var(--lheight); margin:14px 0 6px; cursor:text; min-height:1.5em; max-height:20vh; overflow-y:auto; color:var(--text2); }
-  #focusbody:empty::before { content:"Start writing here."; color:var(--ph); font-style:italic; }
+  #focusbody:empty::before { content:attr(data-ph); color:var(--ph); font-style:italic; }
   /* leaf scene (or hidden panels) = a real writing surface: editor takes the whole height */
   #main.writing #focus, #main.hidepanels #focus { flex:1; min-height:0; }
   #main.writing #focusbody, #main.hidepanels #focusbody { flex:1; max-height:none; overflow-y:auto; padding-bottom:20vh; }

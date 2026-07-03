@@ -581,6 +581,11 @@ function render() {
   ft.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); ft.blur(); } };
 
   const fb = $('focusbody');
+  fb.dataset.ph = currentTag
+    ? `Everything about this ${currentTag.cat.replace(/s$/, '')} - every mention in the story links here.`
+    : f.depth === 0 ? 'Brainstorm your story here - premise, themes, big ideas. The manuscript itself is written in the scenes.'
+    : f.children.length ? `Plan this ${(kindLabel.split(' ')[0] || 'section').toLowerCase()} here - summary, beats, reminders. The prose itself is written in the scenes.`
+    : 'Write your scene here - this is the prose that becomes the manuscript.';
   fb.onclick = e => {
     if (e.target.classList.contains('entity')) openTagByName(e.target.dataset.name);
     else if (e.target.classList.contains('annot')) openAnnot(e.target);
