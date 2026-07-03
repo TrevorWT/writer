@@ -8,6 +8,16 @@ import { icon } from './icons.js';
 // static chrome icons
 document.getElementById('sidetoggle').innerHTML = icon('sidebar', 18);
 document.getElementById('settingsbtn').innerHTML = icon('gear', 17);
+document.getElementById('guidebtn').innerHTML = icon('help', 17);
+document.querySelectorAll('#guidedlg .gicon').forEach(el => { el.innerHTML = icon(el.dataset.i, 17); });
+document.getElementById('guidebtn').onclick = () => document.getElementById('guidedlg').showModal();
+document.getElementById('guideclose').onclick = () => {
+  localStorage.setItem('writer-toured', '1');
+  document.getElementById('guidedlg').close();
+};
+if (!localStorage.getItem('writer-toured')) {
+  setTimeout(() => document.getElementById('guidedlg').showModal(), 400);
+}
 document.getElementById('exportbtn').innerHTML = icon('upload', 17);
 document.getElementById('tsicon').innerHTML = icon('search', 13);
 document.getElementById('samplebtn').innerHTML = icon('book', 14);

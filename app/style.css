@@ -392,3 +392,8 @@
   .hgroup[open] summary { border-bottom-style:dashed; }
   .hrow.hsub { padding-left:90px; background:var(--bg); }
   #askinput[hidden] { display:none; }
+  #guidedlg { max-width:560px; }
+  .guiderow { display:flex; gap:14px; align-items:flex-start; padding:11px 0; border-bottom:1px solid var(--line); font-size:13px; color:var(--text2); line-height:1.55; }
+  .guiderow:last-of-type { border-bottom:none; }
+  .guiderow b { color:var(--text); }
+  .gicon { flex:0 0 34px; height:34px; border-radius:8px; background:var(--btn); color:var(--accent); display:flex; align-items:center; justify-content:center; }
