@@ -23,6 +23,7 @@ document.getElementById('modebtn').innerHTML = icon('pencil', 13) + ' editing';
 document.getElementById('storyinfobtn').innerHTML = icon('pencil', 12);
 document.getElementById('historybtn').innerHTML = icon('history', 12);
 document.getElementById('snapbtn').innerHTML = icon('camera', 13) + ' Snapshot now';
+document.getElementById('upzoneicon').innerHTML = icon('arrowup', 14);
 document.getElementById('statsbtn').innerHTML = icon('chart', 17);
 
 const KIND = ['Story', 'Part', 'Chapter', 'Scene', 'Page', 'Section', 'Section'];
@@ -844,8 +845,13 @@ function makeDraggable(el, node) {
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', '');
     e.stopPropagation();
+    // offer "up a level" whenever the current view has a parent to go to
+    if (tree && path.length > 1) document.getElementById('upzone').hidden = false;
   });
-  el.addEventListener('dragend', () => { dragNode = null; });
+  el.addEventListener('dragend', () => {
+    dragNode = null;
+    document.getElementById('upzone').hidden = true;
+  });
 }
 function makeDropTarget(el, getTarget) {   // getTarget() -> [parent, index]
   el.addEventListener('dragover', e => {
@@ -863,6 +869,13 @@ function makeDropTarget(el, getTarget) {   // getTarget() -> [parent, index]
     moveNode(dragNode, parent, index);
   });
 }
+
+// mid-drag target: drop to move the section up beside its current container
+makeDropTarget(document.getElementById('upzone'), () => {
+  const gp = path[path.length - 2];
+  const idx = gp.children.indexOf(focus()) + 1;
+  return [gp, idx];
+});
 
 // deletion: trivial sections get a confirm; anything substantial requires
 // typing DELETE so a stray click can't erase real writing

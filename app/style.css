@@ -315,3 +315,7 @@
   .hlabel { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text); }
   .hdate { color:var(--dim); font-size:12px; white-space:nowrap; }
   .hrow button { font-size:12px; padding:4px 10px; }
+  /* appears only mid-drag: drop target that promotes a section up a level */
+  #upzone { position:absolute; top:52px; left:50%; transform:translateX(-50%); z-index:85; display:flex; align-items:center; gap:8px; padding:12px 26px; border:2px dashed var(--dim); border-radius:12px; background:var(--pop); color:var(--dim); font:13px system-ui,sans-serif; box-shadow:0 6px 20px var(--shadow); pointer-events:auto; }
+  #upzone[hidden] { display:none; }
+  #upzone.dragover { border-color:var(--accent); color:var(--accent); background:var(--hover); }
