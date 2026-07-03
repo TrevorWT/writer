@@ -65,7 +65,7 @@
   dialog .row label { flex:1; }
   dialog .btns { display:flex; gap:8px; margin-top:16px; }
   dialog .btns button[type=submit] { background:var(--accent); border-color:var(--accent); color:var(--accentText); margin-left:auto; }
-  #ribbon { width:42px; background:var(--panel); border-right:1px solid var(--line); display:flex; flex-direction:column; align-items:center; padding:10px 0; gap:6px; flex-shrink:0; z-index:60; }
+  #ribbon { width:42px; background:var(--panel); border-right:1px solid var(--line); display:flex; flex-direction:column; align-items:center; padding:10px 0 32px; gap:6px; flex-shrink:0; z-index:60; }
   .ribbtn { width:32px; height:32px; border-radius:7px; display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--dim); font-size:calc(var(--ui) + 3px); user-select:none; border:1px solid transparent; }
   .ribbtn:hover { background:var(--hover); border-color:var(--line); color:var(--text); }
   #notesgrip { position:absolute; left:-3px; top:0; bottom:0; width:7px; cursor:col-resize; }
@@ -275,8 +275,7 @@
   #ctxmenu .item.new { color:var(--dim); font-style:italic; text-transform:none; }
 
   /* slim status bar under the timeline — nothing overlays the page graph */
-  #statusrow { position:fixed; left:calc(42px + var(--sidew,230px) + 1px); right:0; bottom:0; z-index:70; height:26px; display:flex; align-items:center; gap:16px; padding:0 14px; font:12px system-ui,sans-serif; color:var(--dim); background:var(--panel); border-top:1px solid var(--line); border-left:1px solid var(--line); }
-  body.sidecollapsed #statusrow { left:42px; }
+  #statusrow { position:fixed; left:0; right:0; bottom:0; z-index:70; height:26px; display:flex; align-items:center; gap:16px; padding:0 14px; font:12px system-ui,sans-serif; color:var(--dim); background:var(--panel); border-top:1px solid var(--line); }
   #savestatus.err { color:#f0a0a8; }
   #sectionstatus { color:var(--text2); }
   #goalpill { margin-left:auto; }
