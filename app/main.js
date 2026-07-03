@@ -747,7 +747,7 @@ function panelEl(node) {
     const mkPlus = (cls, title, at) => {
       const gp = document.createElement('div');
       gp.className = 'gplus' + cls;
-      gp.textContent = '+';
+      gp.innerHTML = icon('plus', 12);
       gp.title = title;
       gp.onclick = e => {
         e.stopPropagation();
@@ -781,7 +781,7 @@ function gapEl(parent, index) {
     plus.textContent = '+ Add a ' + (currentTag ? 'section' : LADDER[0].toLowerCase()) + ' inside';
     g.classList.add('bigwrap');
   } else {
-    plus.textContent = '+';
+    plus.innerHTML = icon('plus', 14);
   }
   plus.title = 'Add section';
   plus.onclick = () => addChild(parent, index);

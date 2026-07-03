@@ -174,7 +174,7 @@
   .panel .count { position:absolute; bottom:6px; right:10px; font-family:system-ui,sans-serif; font-size:11px; color:var(--dim); z-index:1; }
 
   .gap { width:42px; align-self:stretch; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
-  .gap .plus { opacity:0; width:26px; height:26px; flex-shrink:0; border-radius:50%; background:var(--btn); color:var(--text); font-size:18px; line-height:24px; text-align:center; cursor:pointer; transition:opacity .12s; user-select:none; }
+  .gap .plus { opacity:0; width:26px; height:26px; flex-shrink:0; border-radius:50%; background:var(--btn); color:var(--text); display:flex; align-items:center; justify-content:center; cursor:pointer; transition:opacity .12s; user-select:none; }
   .gap:hover .plus { opacity:1; }
   .gap .plus:hover { background:var(--accent); color:var(--accentText); }
   .gap.dragover { background:var(--accent); border-radius:3px; }
