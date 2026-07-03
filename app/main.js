@@ -53,11 +53,20 @@ function computeKinds() {
   (function walk(n) {
     for (const c of n.children) {
       const kind = LADDER[Math.min(Math.max(H - c.depth, 0), LADDER.length - 1)];
-      counts[kind] = (counts[kind] || 0) + 1;
-      kindMap.set(c, { kind, num: counts[kind], label: kind + ' ' + counts[kind] });
+      if (c.nonum) {
+        kindMap.set(c, { kind, num: null, label: kind });   // prologues etc: unnumbered, doesn't consume a number
+      } else {
+        counts[kind] = (counts[kind] || 0) + 1;
+        kindMap.set(c, { kind, num: counts[kind], label: kind + ' ' + counts[kind] });
+      }
       walk(c);
     }
   })(storyTree);
+}
+const STATUSES = ['', 'outline', 'draft', 'revised', 'done'];
+function setNodeStatus(node, status) {
+  node.status = status;
+  save(); render();
 }
 const labelOf = n => n.title || (kindMap.get(n) || {}).label || '(untitled)';
 
@@ -129,6 +138,8 @@ async function save() {
     }
     lastSaveAt = Date.now();
     setStatus('Saved');
+    updateGoal();
+    relinkBody();
   } catch (e) {
     console.error(e);
     setStatus('Save failed - check console', true);
@@ -174,6 +185,71 @@ function domToMd(root) {
   })(root);
   return out.replace(/^\n+|\n+$/g, '');
 }
+// ---- live linkify while typing: re-render links on save, preserving caret ----
+// offsets mirror domToMd: text node chars count, DIVs and meaningful BRs = 1
+function caretOffsetIn(el) {
+  const sel = getSelection();
+  if (!sel.rangeCount || !el.contains(sel.anchorNode)) return null;
+  const r = sel.getRangeAt(0);
+  let off = 0, found = false;
+  (function walk(n) {
+    if (found) return;
+    if (n.nodeType === 3) {
+      if (n === r.startContainer) { off += r.startOffset; found = true; }
+      else off += n.textContent.length;
+      return;
+    }
+    if (n.tagName === 'BR') { if (n.parentNode.childNodes.length > 1) off += 1; return; }
+    if (n.tagName === 'DIV' && n !== el) off += 1;
+    if (n === r.startContainer) {
+      for (let i = 0; i < r.startOffset && !found; i++) walk(n.childNodes[i]);
+      found = true;
+      return;
+    }
+    for (const c of n.childNodes) { walk(c); if (found) return; }
+  })(el);
+  return found ? off : null;
+}
+function setCaretAt(el, off) {
+  let remaining = off, done = false;
+  (function walk(n) {
+    if (done) return;
+    if (n.nodeType === 3) {
+      if (remaining <= n.textContent.length) {
+        const r = document.createRange();
+        r.setStart(n, remaining);
+        r.collapse(true);
+        const s = getSelection();
+        s.removeAllRanges();
+        s.addRange(r);
+        done = true;
+        return;
+      }
+      remaining -= n.textContent.length;
+      return;
+    }
+    for (const c of n.childNodes) { walk(c); if (done) return; }
+  })(el);
+  if (!done) {
+    const r = document.createRange();
+    r.selectNodeContents(el);
+    r.collapse(false);
+    const s = getSelection();
+    s.removeAllRanges();
+    s.addRange(r);
+  }
+}
+function relinkBody() {
+  const fb = $('focusbody');
+  if (readonly || !tree || document.activeElement !== fb) return;
+  const f = focus();
+  const html = linkify(f.body, true);
+  if (fb.innerHTML === html) return;
+  const off = caretOffsetIn(fb);
+  fb.innerHTML = html;
+  if (off !== null) setCaretAt(fb, off);
+}
+
 const focus = () => path[path.length - 1];
 const focusHasChildren = () => tree && focus().children.length > 0;
 let panelsHidden = false;
@@ -215,7 +291,16 @@ function render() {
   const wc = wordCount(f);
   const kindLabel = currentTag ? kindName(f.depth)
     : f.depth === 0 ? 'Story' : ((kindMap.get(f) || {}).label || '');
-  $('focuskind').textContent = kindLabel + (wc && !currentTag ? ` · ${wc.toLocaleString()} words` : '');
+  const fk = $('focuskind');
+  fk.textContent = kindLabel + (wc && !currentTag ? ` · ${wc.toLocaleString()} words` : '');
+  if (!currentTag && f.depth > 0) {
+    const chip = document.createElement('span');
+    chip.className = 'statuschip focus-status ' + (f.status ? 'st-' + f.status : 'st-none');
+    chip.textContent = f.status || 'no status';
+    chip.title = 'Click to change status';
+    chip.onclick = () => setNodeStatus(f, STATUSES[(STATUSES.indexOf(f.status || '') + 1) % STATUSES.length]);
+    fk.appendChild(chip);
+  }
   $('main').classList.toggle('writing', !f.children.length && (f.depth > 0 || !!currentTag));
   $('main').classList.toggle('hidepanels', panelsHidden && f.children.length > 0);
   $('panelsbtn').innerHTML = (panelsHidden ? icon('square', 13) : icon('columns', 13)) + ' panels';
@@ -258,6 +343,7 @@ function render() {
   renderOutline();
   renderBacklinks();
   renderNotes();
+  updateGoal();
 }
 
 // ---- per-section notes popout ----
@@ -390,7 +476,31 @@ function renderOutline() {
         render();
       };
       makeDraggable(row, c);
-      makeDropTarget(row, () => [c, c.children.length]);    // drop on an outline row = into it
+      // drop zones: top third = before, bottom third = after, middle = nest into
+      row.addEventListener('dragover', e => {
+        if (!dragNode) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const r = row.getBoundingClientRect();
+        const y = e.clientY - r.top;
+        row.classList.remove('drop-top', 'drop-bottom', 'dragover');
+        if (y < r.height * 0.3) row.classList.add('drop-top');
+        else if (y > r.height * 0.7) row.classList.add('drop-bottom');
+        else row.classList.add('dragover');
+      });
+      row.addEventListener('dragleave', () => row.classList.remove('drop-top', 'drop-bottom', 'dragover'));
+      row.addEventListener('drop', e => {
+        e.preventDefault();
+        e.stopPropagation();
+        const r = row.getBoundingClientRect();
+        const y = e.clientY - r.top;
+        row.classList.remove('drop-top', 'drop-bottom', 'dragover');
+        const parent = findParent(storyTree, c) || storyTree;
+        const idx = parent.children.indexOf(c);
+        if (y < r.height * 0.3) moveNode(dragNode, parent, idx);
+        else if (y > r.height * 0.7) moveNode(dragNode, parent, idx + 1);
+        else moveNode(dragNode, c, c.children.length);
+      });
       list.appendChild(row);
       if (c._open) walk(c, p, indent + 1);
     }
@@ -425,6 +535,17 @@ function panelEl(node) {
   const fade = document.createElement('div');
   fade.className = 'fade';
   el.append(h, p, fade);
+  if (node.status) {
+    const st = document.createElement('div');
+    st.className = 'statuschip st-' + node.status;
+    st.textContent = node.status;
+    st.title = 'Click to change status';
+    st.onclick = e => {
+      e.stopPropagation();
+      setNodeStatus(node, STATUSES[(STATUSES.indexOf(node.status) + 1) % STATUSES.length]);
+    };
+    el.appendChild(st);
+  }
   const wc = wordCount(node);
   if (node.children.length || wc) {
     const c = document.createElement('div');
@@ -604,8 +725,29 @@ function editTitle(node, el) {
   el.onblur = () => { node.title = el.innerText.trim() || node.title; save(); render(); };
 }
 
+const defaultPrefs = () => ({
+  newTemplate: 'novel',
+  customDepth: 3,
+  customCount: 3,
+  goal: 0,
+  exportFormat: 'docx',
+  exportSep: '* * *',
+  exportSmf: true,
+  exportTitlepage: true,
+  author: '',
+  byline: '',
+  contact: [],
+});
+let prefs = { ...defaultPrefs(), ...JSON.parse(localStorage.getItem('writer-prefs') || '{}') };
+function savePrefs() { localStorage.setItem('writer-prefs', JSON.stringify(prefs)); }
+function countsForTemplate(tpl, depth, count) {
+  return tpl === 'custom'
+    ? Array(Math.min(5, +depth || 1)).fill(Math.min(8, +count || 1))
+    : (TEMPLATES[tpl] || TEMPLATES.novel);
+}
+
 // ---- text settings (persisted) ----
-const SETTINGS = { measure: { unit: 'px', def: 720 }, fsize: { unit: 'px', def: 17 }, lheight: { unit: '', def: 1.7 }, ui: { unit: 'px', def: 13 } };
+const SETTINGS = { measure: { unit: 'px', def: 720 }, fsize: { unit: 'px', def: 17 }, lheight: { unit: '', def: 1.7 } };
 const stored = JSON.parse(localStorage.getItem('writer-text') || '{}');
 for (const key in SETTINGS) {
   const s = SETTINGS[key], input = $('s-' + key);
@@ -771,6 +913,9 @@ function closeSearch() {
   $('searchdrop').hidden = true;
   $('searchinput').value = '';
   $('searchinput').blur();
+  replaceMode = false;
+  $('replacerow').hidden = true;
+  $('replaceinput').value = '';
 }
 function doSearch(q) {
   const ql = q.trim().toLowerCase();
@@ -831,8 +976,53 @@ function doSearch(q) {
     box.appendChild(row);
   });
 }
+// ---- find & replace ----
+let replaceMode = false;
+function openReplace() {
+  replaceMode = true;
+  $('replacerow').hidden = false;
+  openSearch();
+}
+function doReplaceAll() {
+  const q = $('searchinput').value.trim();
+  const rep = $('replaceinput').value;
+  if (!q || !storyTree) return;
+  const re = new RegExp(escRe(q), 'gi');
+  pushUndo();
+  let count = 0;
+  const apply = (n, withTitle) => {
+    for (const key of withTitle ? ['title', 'body', 'notes'] : ['body', 'notes']) {
+      if (!n[key]) continue;
+      const m = n[key].match(re);
+      if (m) { count += m.length; n[key] = n[key].replace(re, rep); }
+    }
+    n.children.forEach(c => apply(c, true));
+  };
+  apply(storyTree, false);   // never rewrite the story's root title (it's the folder name)
+  const wasTag = currentTag;
+  if (wasTag) { currentTag = null; }   // make save() write the story, not the open tag page
+  const wasTree = tree;
+  tree = storyTree;
+  save().finally(() => {
+    if (wasTag) { currentTag = wasTag; tree = wasTree; }
+    render();
+    doSearch(q);
+    setStatus(`Replaced ${count} occurrence${count === 1 ? '' : 's'}`);
+  });
+}
+$('replaceall').onmousedown = e => { e.preventDefault(); doReplaceAll(); };
+$('replaceinput').onkeydown = e => {
+  if (e.key === 'Enter') { e.preventDefault(); doReplaceAll(); }
+  else if (e.key === 'Escape') closeSearch();
+};
+
 $('searchinput').onfocus = openSearch;
-$('searchinput').onblur = () => { $('searchdrop').hidden = true; };
+$('searchinput').onblur = () => {
+  setTimeout(() => {
+    const a = document.activeElement;
+    if (!a || !a.closest || !a.closest('#topsearch')) { $('searchdrop').hidden = true; }
+  }, 0);
+};
 $('searchinput').oninput = () => doSearch($('searchinput').value);
 $('searchinput').onkeydown = e => {
   if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
@@ -849,7 +1039,9 @@ $('searchinput').onkeydown = e => {
   }
 };
 document.addEventListener('keydown', e => {
-  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') { e.preventDefault(); openSearch(); }
+  if (!(e.ctrlKey || e.metaKey)) return;
+  if (e.key.toLowerCase() === 'p') { e.preventDefault(); replaceMode = false; $('replacerow').hidden = true; openSearch(); }
+  else if (e.key.toLowerCase() === 'h') { e.preventDefault(); openReplace(); }
 });
 
 // ---- tags ----
@@ -906,12 +1098,17 @@ async function refreshTags() {
       div.className = 'tag' + (currentTag && currentTag.name === name ? ' active' : '');
       const label = document.createElement('span');
       label.textContent = name;
+      const ren = document.createElement('span');
+      ren.className = 'rowdel rowren';
+      ren.innerHTML = icon('pencil', 11);
+      ren.title = 'Rename tag';
+      ren.onclick = e => { e.stopPropagation(); renameTag(cat, name); };
       const del = document.createElement('span');
       del.className = 'rowdel';
       del.textContent = '✕';
       del.title = 'Delete tag';
       del.onclick = e => { e.stopPropagation(); deleteTag(cat, name); };
-      div.append(label, del);
+      div.append(label, ren, del);
       div.onclick = () => openTag(cat, name);
       list.appendChild(div);
     }
@@ -967,6 +1164,39 @@ $('newtag').onclick = async () => {
   await refreshTags();
 };
 
+async function renameTag(cat, oldName) {
+  const newName = (prompt(`Rename tag "${oldName}" to:`, oldName) || '').trim();
+  if (!newName || newName === oldName) return;
+  if (tagIndex.has(newName)) { alert('A tag with that name already exists.'); return; }
+  const oldP = tagFilePath(cat, oldName), newP = tagFilePath(cat, newName);
+  try {
+    await FS.writeText(newP, await FS.readText(oldP));
+    await FS.remove(oldP);
+  } catch (e) { alert('Rename failed: ' + e.message); return; }
+  // [[bracket]] references always follow the rename
+  const reB = new RegExp('\\[\\[' + escRe(oldName) + '\\]\\]', 'g');
+  (function wb(n) {
+    n.body = n.body.replace(reB, '[[' + newName + ']]');
+    n.notes = n.notes.replace(reB, '[[' + newName + ']]');
+    n.children.forEach(wb);
+  })(storyTree);
+  // plain prose mentions only on request — that's a real find & replace
+  const reW = new RegExp('\\b' + escRe(oldName) + '\\b', 'g');
+  let plain = 0;
+  (function count(n) { plain += (n.body.match(reW) || []).length; n.children.forEach(count); })(storyTree);
+  if (plain && confirm(`Also replace ${plain} plain mention${plain === 1 ? '' : 's'} of "${oldName}" with "${newName}" in the story text?`)) {
+    pushUndo();
+    (function rw(n) { n.body = n.body.replace(reW, newName); n.children.forEach(rw); })(storyTree);
+  }
+  const viewingIt = currentTag && currentTag.name === oldName;
+  const wasTag = currentTag, wasTree = tree;
+  currentTag = null; tree = storyTree;          // save the story, not the open tag page
+  await save();
+  if (wasTag && !viewingIt) { currentTag = wasTag; tree = wasTree; }
+  await refreshTags();
+  if (viewingIt) await openTag(cat, newName); else render();
+}
+
 async function deleteTag(cat, name) {
   if (!confirm(`Delete tag "${name}"?`)) return;
   try {
@@ -996,6 +1226,45 @@ document.addEventListener('contextmenu', e => {
   if (!tree || !storyPath) return;
   const sel = document.getSelection();
   const name = sel.toString().trim();
+
+  // right-click on a panel (no text selected): section menu
+  const panelHit = !name && e.target.closest('.panel');
+  if (panelHit && e.target.closest('#panels')) {
+    const node = panelHit._node;
+    e.preventDefault();
+    const menu = document.createElement('div');
+    menu.id = 'ctxmenu';
+    const head = document.createElement('div');
+    head.className = 'head';
+    head.textContent = labelOf(node);
+    menu.appendChild(head);
+    for (const s of STATUSES) {
+      const it = document.createElement('div');
+      it.className = 'item';
+      it.style.textTransform = 'none';
+      it.textContent = ((node.status || '') === s ? '● ' : '   ') + (s || 'no status');
+      it.onclick = () => { closeCtx(); setNodeStatus(node, s); };
+      menu.appendChild(it);
+    }
+    const nn = document.createElement('div');
+    nn.className = 'item';
+    nn.style.textTransform = 'none';
+    nn.textContent = node.nonum ? 'Include in numbering' : 'Exclude from numbering (prologue etc.)';
+    nn.onclick = () => { closeCtx(); node.nonum = !node.nonum; save(); render(); };
+    menu.appendChild(nn);
+    const dl = document.createElement('div');
+    dl.className = 'item';
+    dl.style.textTransform = 'none';
+    dl.textContent = 'Delete…';
+    dl.onclick = () => { closeCtx(); deleteNode(node); };
+    menu.appendChild(dl);
+    document.body.appendChild(menu);
+    const r = menu.getBoundingClientRect();
+    menu.style.left = Math.min(e.clientX, innerWidth - r.width - 8) + 'px';
+    menu.style.top = Math.min(e.clientY, innerHeight - r.height - 8) + 'px';
+    return;
+  }
+
   if (!name || name.includes('\n') || !e.target.closest('#main')) return;
 
   const menu = document.createElement('div');
@@ -1118,6 +1387,29 @@ document.addEventListener('mousedown', e => {
   if (curMark && !e.target.closest('#annotpop') && e.target !== curMark) closeAnnot();
 });
 
+// ---- writing goals & session stats ----
+let dayStart = null;
+function trackDay() {
+  if (!storyTree || !storyName) { dayStart = null; return; }
+  const key = 'writer-day:' + storyName;
+  const today = new Date().toISOString().slice(0, 10);
+  const wcNow = wordCount(storyTree);
+  let d = JSON.parse(localStorage.getItem(key) || 'null');
+  if (!d || d.date !== today) d = { date: today, start: wcNow };
+  localStorage.setItem(key, JSON.stringify(d));
+  dayStart = d.start;
+}
+function updateGoal() {
+  const el = $('goalpill');
+  if (!storyTree || dayStart === null) { el.hidden = true; return; }
+  const delta = wordCount(storyTree) - dayStart;
+  const goal = +prefs.goal || 0;
+  el.hidden = false;
+  el.textContent = `${delta >= 0 ? '+' : ''}${delta.toLocaleString()} today` +
+    (goal ? ` · ${Math.min(999, Math.round(100 * Math.max(0, delta) / goal))}% of ${goal.toLocaleString()}` : '');
+  el.classList.toggle('met', goal > 0 && delta >= goal);
+}
+
 // ---- library / stories ----
 async function openLibrary(path) {
   libPath = path;
@@ -1213,6 +1505,7 @@ async function openStory(name, el) {
   undoStack.length = 0; redoStack.length = 0; updateHistBtns();
   storyTree = tree;
   path = [tree];
+  trackDay();
   await refreshTags();
   render();
   await updateRestoreButton();
@@ -1268,7 +1561,14 @@ $('storyinfoform').onsubmit = () => {
   save();
 };
 makeDropTarget($('storyname'), () => [storyTree, storyTree.children.length]);   // drop = promote to top level
-$('newstory').onclick = () => { $('ns-name').value = ''; $('newstorydlg').showModal(); };
+$('newstory').onclick = () => {
+  $('ns-name').value = '';
+  $('ns-template').value = prefs.newTemplate;
+  $('ns-depth').value = prefs.customDepth;
+  $('ns-count').value = prefs.customCount;
+  $('ns-custom').hidden = $('ns-template').value !== 'custom';
+  $('newstorydlg').showModal();
+};
 $('ns-template').onchange = () => { $('ns-custom').hidden = $('ns-template').value !== 'custom'; };
 const TEMPLATES = { blank: [], short: [3], novel: [3, 4, 2], epic: [3, 3, 3, 2] };
 function buildLevels(counts, depth = 1) {
@@ -1281,17 +1581,20 @@ $('newstoryform').onsubmit = async e => {
   const name = $('ns-name').value.trim();
   if (!name) return;
   const tpl = $('ns-template').value;
-  const counts = tpl === 'custom'
-    ? Array(Math.min(5, +$('ns-depth').value || 1)).fill(Math.min(8, +$('ns-count').value || 1))
-    : TEMPLATES[tpl];
+  const counts = countsForTemplate(tpl, $('ns-depth').value, $('ns-count').value);
   $('newstorydlg').close();
   await FS.mkdir(FS.join(libPath, name));
   await listStories();
   await openStory(name);
+  if (!storyMeta.author && !storyMeta.byline && !storyMeta.contact) {
+    storyMeta = { author: prefs.author, byline: prefs.byline, contact: prefs.contact };
+  }
   if (counts.length && !tree.children.length) {
     tree.children = buildLevels(counts);
     await save();
     render();
+  } else {
+    await save();
   }
 };
 
@@ -1364,6 +1667,10 @@ function download(name, text, type) {
 }
 $('exportbtn').onclick = () => {
   if (!storyTree) return;
+  $('ex-format').value = prefs.exportFormat;
+  $('ex-sep').value = prefs.exportSep;
+  $('ex-smf').checked = !!prefs.exportSmf;
+  $('ex-titlepage').checked = !!prefs.exportTitlepage;
   // one row per layer in this story: check what compiles (titles as headings,
   // contents as text). Defaults: containers = title only, scenes = prose only.
   const H = treeHeight(storyTree);
@@ -1390,6 +1697,11 @@ $('exportbtn').onclick = () => {
 };
 $('exportform').onsubmit = e => {
   e.preventDefault();
+  prefs.exportFormat = $('ex-format').value;
+  prefs.exportSep = $('ex-sep').value;
+  prefs.exportSmf = $('ex-smf').checked;
+  prefs.exportTitlepage = $('ex-titlepage').checked;
+  savePrefs();
   const scope = $('ex-scope').value;
   const root = scope === 'current' && !currentTag ? focus() : storyTree;
   const title = root === storyTree ? storyTree.title : (root.title || labelOf(root));
@@ -1425,13 +1737,54 @@ $('exportform').onsubmit = e => {
 };
 
 // ---- settings ----
-$('settingsbtn').onclick = () => { $('ladderinput').value = LADDER.join(', '); $('settingsdlg').showModal(); };
+document.querySelectorAll('#settingsnav button').forEach(btn => {
+  btn.onclick = () => {
+    const tab = btn.dataset.settingsTab;
+    document.querySelectorAll('#settingsnav button').forEach(b => b.classList.toggle('active', b === btn));
+    document.querySelectorAll('.settings-page').forEach(p => p.classList.toggle('active', p.dataset.settingsPage === tab));
+  };
+});
+$('set-new-template').onchange = () => { $('set-custom-row').hidden = $('set-new-template').value !== 'custom'; };
+$('settingsbtn').onclick = () => {
+  document.querySelector('#settingsnav button[data-settings-tab="files"]').click();
+  $('set-libpath').value = libPath || '';
+  $('set-storypath').value = storyPath || '';
+  $('set-new-template').value = prefs.newTemplate;
+  $('set-depth').value = prefs.customDepth;
+  $('set-count').value = prefs.customCount;
+  $('set-custom-row').hidden = prefs.newTemplate !== 'custom';
+  $('set-export-format').value = prefs.exportFormat;
+  $('set-export-sep').value = prefs.exportSep;
+  $('set-export-smf').checked = !!prefs.exportSmf;
+  $('set-export-titlepage').checked = !!prefs.exportTitlepage;
+  $('set-goal').value = +prefs.goal || 0;
+  $('set-author').value = prefs.author || '';
+  $('set-byline').value = prefs.byline || '';
+  $('set-contact').value = [].concat(prefs.contact || []).join('\n');
+  $('ladderinput').value = LADDER.join(', ');
+  $('settingsdlg').showModal();
+};
 $('settingsform').onsubmit = () => {
   const names = $('ladderinput').value.split(',').map(s => s.trim()).filter(Boolean);
   if (names.length) {
     LADDER = names;
     localStorage.setItem('writer-ladder', JSON.stringify(LADDER));
   }
+  prefs = {
+    ...prefs,
+    newTemplate: $('set-new-template').value,
+    customDepth: Math.min(5, +$('set-depth').value || 1),
+    customCount: Math.min(8, +$('set-count').value || 1),
+    goal: Math.max(0, +$('set-goal').value || 0),
+    exportFormat: $('set-export-format').value,
+    exportSep: $('set-export-sep').value,
+    exportSmf: $('set-export-smf').checked,
+    exportTitlepage: $('set-export-titlepage').checked,
+    author: $('set-author').value.trim(),
+    byline: $('set-byline').value.trim(),
+    contact: $('set-contact').value.split('\n').map(s => s.trim()).filter(Boolean),
+  };
+  savePrefs();
   render();
 };
 

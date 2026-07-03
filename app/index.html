@@ -48,21 +48,94 @@ window.addEventListener('unhandledrejection', e => reportErr('async: ' + (e.reas
 <dialog id="settingsdlg">
   <form id="settingsform" method="dialog">
     <h2>Settings</h2>
-    <h3>Appearance</h3>
-    <label>Theme
-      <select id="themesel">
-        <option value="dark">Dark</option>
-        <option value="light">Light</option>
-      </select>
-    </label>
-    <label>Column width <span id="v-measure"></span><input type="range" id="s-measure" min="560" max="1400" step="20"></label>
-    <label>Text size <span id="v-fsize"></span><input type="range" id="s-fsize" min="14" max="26" step="1"></label>
-    <label>Line spacing <span id="v-lheight"></span><input type="range" id="s-lheight" min="1.3" max="2.2" step="0.05"></label>
-    <label>Button size <span id="v-ui"></span><input type="range" id="s-ui" min="10" max="28" step="1"></label>
-    <h3>Structure</h3>
-    <label>Layer names, smallest to largest (leaves up)
-      <input type="text" id="ladderinput" placeholder="Scene, Chapter, Part, Book, Volume">
-    </label>
+    <div class="settings-grid">
+      <nav id="settingsnav">
+        <button type="button" class="active" data-settings-tab="files">Files</button>
+        <button type="button" data-settings-tab="writing">Writing</button>
+        <button type="button" data-settings-tab="export">Export</button>
+        <button type="button" data-settings-tab="appearance">Appearance</button>
+      </nav>
+      <div class="settings-pages">
+        <section class="settings-page active" data-settings-page="files">
+          <h3>Files & backups</h3>
+          <label>Library folder
+            <input type="text" id="set-libpath" readonly placeholder="No library open">
+          </label>
+          <label>Current story folder
+            <input type="text" id="set-storypath" readonly placeholder="No story open">
+          </label>
+          <p class="setting-note">Stories are plain Markdown folders with Obsidian-style links. The original story.md is backed up to .trash on first save.</p>
+        </section>
+
+        <section class="settings-page" data-settings-page="writing">
+          <h3>Writing</h3>
+          <label>Default new story
+            <select id="set-new-template">
+              <option value="blank">Blank</option>
+              <option value="short">Short story - 3 scenes</option>
+              <option value="novel">Novel - 3 parts, 4 chapters each, 2 scenes each</option>
+              <option value="epic">Epic - 3 books, 3 parts, 3 chapters, 2 scenes</option>
+              <option value="custom">Custom...</option>
+            </select>
+          </label>
+          <div class="row" id="set-custom-row">
+            <label>Layers deep
+              <input type="number" id="set-depth" min="1" max="5" value="3">
+            </label>
+            <label>Sections per layer
+              <input type="number" id="set-count" min="1" max="8" value="3">
+            </label>
+          </div>
+          <label>Layer names, smallest to largest (leaves up)
+            <input type="text" id="ladderinput" placeholder="Scene, Chapter, Part, Book, Volume">
+          </label>
+          <label>Daily word goal (0 = off)
+            <input type="number" id="set-goal" min="0" step="50" value="0">
+          </label>
+        </section>
+
+        <section class="settings-page" data-settings-page="export">
+          <h3>Export defaults</h3>
+          <label>Default format
+            <select id="set-export-format">
+              <option value="docx">Word (.docx)</option>
+              <option value="md">Markdown (.md)</option>
+              <option value="html">HTML (.html)</option>
+            </select>
+          </label>
+          <label>Scene separator
+            <select id="set-export-sep">
+              <option value="* * *">* * *</option>
+              <option value="">Blank line</option>
+            </select>
+          </label>
+          <label class="checkrow"><input type="checkbox" id="set-export-smf"> Standard Manuscript Format for DOCX</label>
+          <label class="checkrow"><input type="checkbox" id="set-export-titlepage"> Include title page</label>
+          <label>Default author
+            <input type="text" id="set-author" autocomplete="off">
+          </label>
+          <label>Default byline
+            <input type="text" id="set-byline" autocomplete="off" placeholder="defaults to author">
+          </label>
+          <label>Default contact info - one line each
+            <textarea id="set-contact" rows="4"></textarea>
+          </label>
+        </section>
+
+        <section class="settings-page" data-settings-page="appearance">
+          <h3>Appearance</h3>
+          <label>Theme
+            <select id="themesel">
+              <option value="dark">Dark</option>
+              <option value="light">Light</option>
+            </select>
+          </label>
+          <label>Column width <span id="v-measure"></span><input type="range" id="s-measure" min="560" max="1400" step="20"></label>
+          <label>Text size <span id="v-fsize"></span><input type="range" id="s-fsize" min="14" max="26" step="1"></label>
+          <label>Line spacing <span id="v-lheight"></span><input type="range" id="s-lheight" min="1.3" max="2.2" step="0.05"></label>
+        </section>
+      </div>
+    </div>
     <div class="btns">
       <button type="submit">Done</button>
     </div>
@@ -158,7 +231,7 @@ window.addEventListener('unhandledrejection', e => reportErr('async: ' + (e.reas
   <div id="crumbs">
     <span id="histbtns" hidden><button id="undobtn" title="Undo move/delete (Ctrl+Z)" disabled></button><button id="redobtn" title="Redo (Ctrl+Y)" disabled></button></span>
     <div id="crumbpath"></div>
-    <div id="topsearch" hidden title="Search (Ctrl+P)"><span id="tsicon" style="display:flex"></span><input id="searchinput" placeholder="Search story..." autocomplete="off"><div id="searchdrop" hidden><div id="searchresults"></div></div></div>
+    <div id="topsearch" hidden title="Search (Ctrl+P)"><span id="tsicon" style="display:flex"></span><input id="searchinput" placeholder="Search story..." autocomplete="off"><div id="searchdrop" hidden><div id="replacerow" hidden><input id="replaceinput" placeholder="Replace with..." autocomplete="off"><button id="replaceall" type="button">Replace all</button></div><div id="searchresults"></div></div></div>
     <div id="topbtns"><button id="gridbtn" hidden title="Toggle grid view for panels"></button><button id="panelsbtn" hidden title="Show/hide the section panels"></button><button id="modebtn" hidden title="Toggle read-only (like Obsidian's reading view)"></button></div>
   </div>
   <div id="focus" hidden>
@@ -190,6 +263,7 @@ window.addEventListener('unhandledrejection', e => reportErr('async: ' + (e.reas
   <div id="annotlist"></div>
 </div>
 <div id="savestatus">No story open</div>
+<div id="goalpill" hidden></div>
 
 <script type="module" src="main.js"></script>
 </body>

@@ -47,6 +47,23 @@ const an = parse('# A\n\nsee ==the key==%%foreshadow%% here\n\n%%\nsection note\
 assert.equal(an.children[0].notes, 'section note');
 assert.equal(an.children[0].body, 'see ==the key==%%foreshadow%% here');
 
+// section flags: [meta:] line in the notes block round-trips, invisible in notes
+{
+  const s = parse('# A\n\nprose\n\n%%\n[meta: status=draft unnumbered]\nplain note\n%%\n\n# B\n', 'S');
+  assert.equal(s.children[0].status, 'draft');
+  assert.equal(s.children[0].nonum, true);
+  assert.equal(s.children[0].notes, 'plain note');
+  const round = serialize(s);
+  assert.ok(round.includes('[meta: status=draft unnumbered]'));
+  const re = parse(round, 'S');
+  assert.equal(re.children[0].status, 'draft');
+  assert.equal(re.children[0].nonum, true);
+  assert.equal(re.children[1].status, '');
+  // flag-only sections serialize a block even without freeform notes
+  s.children[1].status = 'done';
+  assert.ok(serialize(s).includes('[meta: status=done]'));
+}
+
 // old-format single-H1 unwrap
 const old = parse('# Old Title\n\nintro\n\n## Beginning\n\nx\n\n### Ch1\n', 'Folder');
 assert.equal(old.children[0].depth, 1);

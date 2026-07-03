@@ -58,6 +58,19 @@ export function parse(md, rootTitle, { unwrap = true } = {}) {
       .replace(/%%([\s\S]*?)%%/g, (m, t) => { n.notes += (n.notes ? '\n' : '') + t.trim(); return ''; })
       .replace(/\x00/g, '%%')
       .trim();
+    // [meta: status=draft unnumbered] lines carry section flags inside the
+    // notes block — invisible in Obsidian's reading view like all notes
+    n.status = '';
+    n.nonum = false;
+    n.notes = n.notes.split('\n').filter(l => {
+      const m = l.match(/^\[meta:([^\]]*)\]$/);
+      if (!m) return true;
+      for (const t of m[1].trim().split(/\s+/)) {
+        if (t === 'unnumbered') n.nonum = true;
+        else if (t.startsWith('status=')) n.status = t.slice(7);
+      }
+      return false;
+    }).join('\n').trim();
     n.children.forEach(trim);
   })(root);
   // single H1 = old-format title wrapper, unwrap it. NOT for chapter files —
@@ -72,11 +85,21 @@ export function parse(md, rootTitle, { unwrap = true } = {}) {
   return root;
 }
 
+// notes + section flags re-emitted as one %% block
+function notesBlock(n) {
+  const flags = [];
+  if (n.status) flags.push('status=' + n.status);
+  if (n.nonum) flags.push('unnumbered');
+  const meta = flags.length ? `[meta: ${flags.join(' ')}]` : '';
+  const content = [meta, n.notes].filter(Boolean).join('\n');
+  return content ? '%%\n' + content + '\n%%\n\n' : '';
+}
+
 export function serialize(node) {
   let out = '';
   if (node.depth > 0) out += ('#'.repeat(node.depth) + ' ' + node.title).trimEnd() + '\n\n';
   if (node.body) out += node.body + '\n\n';
-  if (node.notes) out += '%%\n' + node.notes + '\n%%\n\n';
+  out += notesBlock(node);
   for (const c of node.children) out += serialize(c);
   return out;
 }
@@ -85,7 +108,7 @@ export function serialize(node) {
 export function serializeAt(node, depth) {
   let out = ('#'.repeat(depth) + ' ' + node.title).trimEnd() + '\n\n';
   if (node.body) out += node.body + '\n\n';
-  if (node.notes) out += '%%\n' + node.notes + '\n%%\n\n';
+  out += notesBlock(node);
   for (const c of node.children) out += serializeAt(c, depth + 1);
   return out;
 }
@@ -103,7 +126,7 @@ export function chapterFileName(node, num) {
 export function serializeChapter(ch) {
   let out = '';
   if (ch.body) out += ch.body + '\n\n';
-  if (ch.notes) out += '%%\n' + ch.notes + '\n%%\n\n';
+  out += notesBlock(ch);
   for (const sc of ch.children) out += serializeAt(sc, 1);
   return out;
 }
@@ -113,7 +136,7 @@ export function serializeChapter(ch) {
 export function serializeSkeleton(tree, H) {
   let out = '';
   if (tree.body) out += tree.body + '\n\n';
-  if (tree.notes) out += '%%\n' + tree.notes + '\n%%\n\n';
+  out += notesBlock(tree);
   let num = 0;
   (function walk(n) {
     for (const c of n.children) {
@@ -123,7 +146,7 @@ export function serializeSkeleton(tree, H) {
       }
       out += ('#'.repeat(c.depth) + ' ' + c.title).trimEnd() + '\n\n';
       if (c.body) out += c.body + '\n\n';
-      if (c.notes) out += '%%\n' + c.notes + '\n%%\n\n';
+      out += notesBlock(c);
       walk(c);
       if (H >= 2 && c.depth === H - 2 && c.children.length) out += '\n';
     }
