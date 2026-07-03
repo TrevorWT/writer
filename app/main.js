@@ -19,6 +19,8 @@ document.getElementById('redobtn').innerHTML = icon('redo', 14);
 document.getElementById('modebtn').innerHTML = icon('pencil', 13) + ' editing';
 document.getElementById('storyinfobtn').innerHTML = icon('pencil', 12);
 document.getElementById('restorebtn').innerHTML = icon('undo', 12);
+document.getElementById('statsbtn').innerHTML = icon('chart', 17);
+document.getElementById('statsclose').innerHTML = icon('x', 16);
 
 const KIND = ['Story', 'Part', 'Chapter', 'Scene', 'Page', 'Section', 'Section'];
 let libPath = null, storyPath = null, storyName = '', storyTree = null;
@@ -894,6 +896,7 @@ $('main').addEventListener('wheel', e => {
 }, { passive: false });
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
+  if (!$('statsview').hidden) { $('statsview').hidden = true; return; }
   if (!$('searchdrop').hidden) { closeSearch(); return; }
   if ($('ctxmenu')) { closeCtx(); return; }
   if (curMark) { closeAnnot(); return; }
@@ -1388,27 +1391,191 @@ document.addEventListener('mousedown', e => {
 });
 
 // ---- writing goals & session stats ----
+const dateKey = (d = new Date()) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 let dayStart = null;
 function trackDay() {
   if (!storyTree || !storyName) { dayStart = null; return; }
   const key = 'writer-day:' + storyName;
-  const today = new Date().toISOString().slice(0, 10);
+  const today = dateKey();
   const wcNow = wordCount(storyTree);
   let d = JSON.parse(localStorage.getItem(key) || 'null');
   if (!d || d.date !== today) d = { date: today, start: wcNow };
   localStorage.setItem(key, JSON.stringify(d));
   dayStart = d.start;
 }
+function saveHistoryPoint(story, day, words) {
+  const h = JSON.parse(localStorage.getItem('writer-history') || '{}');
+  h[story] = h[story] || {};
+  if (words) h[story][day] = words; else delete h[story][day];
+  localStorage.setItem('writer-history', JSON.stringify(h));
+}
 function updateGoal() {
   const el = $('goalpill');
   if (!storyTree || dayStart === null) { el.hidden = true; return; }
   const delta = wordCount(storyTree) - dayStart;
+  saveHistoryPoint(storyName, dateKey(), delta);
   const goal = +prefs.goal || 0;
   el.hidden = false;
   el.textContent = `${delta >= 0 ? '+' : ''}${delta.toLocaleString()} today` +
     (goal ? ` · ${Math.min(999, Math.round(100 * Math.max(0, delta) / goal))}% of ${goal.toLocaleString()}` : '');
   el.classList.toggle('met', goal > 0 && delta >= goal);
 }
+
+// ---- statistics view ----
+async function statsTree(name) {
+  if (name === storyName && storyTree) return storyTree;   // open story: use live tree
+  const sp = FS.join(libPath, name);
+  const sf = FS.join(sp, 'story.md');
+  if (!(await FS.exists(sf).catch(() => false))) return null;
+  const root = parse(splitFrontmatter(await FS.readText(sf)).body, name);
+  const chDir = FS.join(sp, 'chapters');
+  if (await FS.exists(chDir).catch(() => false)) {
+    const nodes = [root];
+    (function all(n) { n.children.forEach(c => { nodes.push(c); all(c); }); })(root);
+    for (const node of nodes) {
+      if (!node.body.includes('![[chapters/')) continue;
+      const refs = [], keep = [];
+      for (const line of node.body.split('\n')) {
+        const m = line.trim().match(/^!\[\[chapters\/(.+?)\]\]$/);
+        if (m) refs.push(m[1] + '.md'); else keep.push(line);
+      }
+      node.body = keep.join('\n').trim();
+      const loaded = [];
+      for (const fname of refs) {
+        try {
+          const c = parse(await FS.readText(FS.join(chDir, fname)), '', { unwrap: false });
+          const ch = { depth: 0, title: '', body: c.body, notes: c.notes, children: c.children };
+          (function fix(k, d) { k.depth = d; k.children.forEach(x => fix(x, d + 1)); })(ch, node.depth + 1);
+          loaded.push(ch);
+        } catch {}
+      }
+      node.children = [...loaded, ...node.children];
+    }
+  }
+  return root;
+}
+function kindCounts(root) {
+  const H = treeHeight(root);
+  const counts = {};
+  (function walk(n) {
+    for (const c of n.children) {
+      const kind = LADDER[Math.min(Math.max(H - c.depth, 0), LADDER.length - 1)];
+      counts[kind] = (counts[kind] || 0) + 1;
+      walk(c);
+    }
+  })(root);
+  return counts;
+}
+function streaks(days) {   // days: map dateKey -> words
+  const worked = new Set(Object.keys(days).filter(k => days[k] > 0));
+  let longest = 0;
+  for (const k of worked) {
+    const prev = new Date(k); prev.setDate(prev.getDate() - 1);
+    if (worked.has(dateKey(prev))) continue;   // not a streak start
+    let len = 0;
+    const d = new Date(k);
+    while (worked.has(dateKey(d))) { len++; d.setDate(d.getDate() + 1); }
+    longest = Math.max(longest, len);
+  }
+  let current = 0;
+  const d = new Date();
+  if (!worked.has(dateKey(d))) d.setDate(d.getDate() - 1);   // today not written yet doesn't break it
+  while (worked.has(dateKey(d))) { current++; d.setDate(d.getDate() - 1); }
+  return { current, longest };
+}
+function calendarEl(days) {
+  const cal = document.createElement('div');
+  cal.className = 'cal';
+  const end = new Date();
+  const start = new Date();
+  start.setDate(start.getDate() - 364 - end.getDay());
+  const d = new Date(start);
+  let col = null;
+  while (d <= end) {
+    if (d.getDay() === 0 || !col) { col = document.createElement('div'); col.className = 'calcol'; cal.appendChild(col); }
+    const cell = document.createElement('div');
+    const w = Math.max(0, days[dateKey(d)] || 0);
+    const cls = w >= 800 ? ' c4' : w >= 400 ? ' c3' : w >= 150 ? ' c2' : w > 0 ? ' c1' : '';
+    cell.className = 'calcell' + cls;
+    cell.title = `${dateKey(d)}: ${w.toLocaleString()} words`;
+    col.appendChild(cell);
+    d.setDate(d.getDate() + 1);
+  }
+  return cal;
+}
+async function renderStats() {
+  const selName = $('statssel').value;
+  const body = $('statsbody');
+  body.innerHTML = '<p style="color:var(--dim)">Crunching…</p>';
+  const names = [];
+  if (selName === '*') {
+    for (const e of await FS.readDir(libPath)) if (e.isDir && !e.name.startsWith('.')) names.push(e.name);
+  } else names.push(selName);
+  const history = JSON.parse(localStorage.getItem('writer-history') || '{}');
+  const days = {};
+  for (const n of names) for (const [day, w] of Object.entries(history[n] || {})) days[day] = (days[day] || 0) + w;
+  let words = 0;
+  const counts = {};
+  for (const n of names) {
+    const t = await statsTree(n);
+    if (!t) continue;
+    words += wordCount(t);
+    for (const [k, v] of Object.entries(kindCounts(t))) counts[k] = (counts[k] || 0) + v;
+  }
+  const st = streaks(days);
+  const daysWorked = Object.values(days).filter(w => w > 0).length;
+  const wordsAllTime = Object.values(days).reduce((a, w) => a + Math.max(0, w), 0);
+
+  body.innerHTML = '';
+  const cards = document.createElement('div');
+  cards.className = 'statcards';
+  const card = (num, label) => {
+    const c = document.createElement('div');
+    c.className = 'statcard';
+    c.innerHTML = `<div class="statnum">${num}</div><div class="statlabel">${esc(label)}</div>`;
+    cards.appendChild(c);
+  };
+  card(words.toLocaleString(), 'words');
+  for (const kind of [...LADDER].reverse()) if (counts[kind]) card(counts[kind].toLocaleString(), kind + (counts[kind] === 1 ? '' : 's'));
+  card(daysWorked.toLocaleString(), 'days worked');
+  card(st.current.toLocaleString(), 'current streak');
+  card(st.longest.toLocaleString(), 'longest streak');
+  card(wordsAllTime.toLocaleString(), 'words tracked');
+  body.appendChild(cards);
+
+  const calHead = document.createElement('h3');
+  calHead.textContent = 'Last 12 months';
+  calHead.className = 'calhead';
+  body.appendChild(calHead);
+  body.appendChild(calendarEl(days));
+  const note = document.createElement('p');
+  note.className = 'calnote';
+  note.textContent = 'Daily words are tracked from the day this feature was added; earlier writing shows in the totals but not the calendar.';
+  body.appendChild(note);
+}
+async function openStats() {
+  if (!libPath) return;
+  const sel = $('statssel');
+  sel.innerHTML = '';
+  const all = document.createElement('option');
+  all.value = '*';
+  all.textContent = 'All stories';
+  sel.appendChild(all);
+  for (const e of await FS.readDir(libPath)) {
+    if (!e.isDir || e.name.startsWith('.')) continue;
+    const o = document.createElement('option');
+    o.value = e.name;
+    o.textContent = e.name;
+    sel.appendChild(o);
+  }
+  sel.value = storyName && [...sel.options].some(o => o.value === storyName) ? storyName : '*';
+  $('statsview').hidden = false;
+  renderStats();
+}
+$('statsbtn').onclick = openStats;
+$('statssel').onchange = renderStats;
+$('statsclose').onclick = () => { $('statsview').hidden = true; };
 
 // ---- library / stories ----
 async function openLibrary(path) {
