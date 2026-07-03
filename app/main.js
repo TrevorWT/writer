@@ -1107,8 +1107,21 @@ $('searchinput').onkeydown = e => {
 };
 document.addEventListener('keydown', e => {
   if (!(e.ctrlKey || e.metaKey)) return;
-  if (e.key.toLowerCase() === 'p') { e.preventDefault(); replaceMode = false; $('replacerow').hidden = true; openSearch(); }
-  else if (e.key.toLowerCase() === 'h') { e.preventDefault(); openReplace(); }
+  const k = e.key.toLowerCase();
+  if (k === 'p' || k === 'f') { e.preventDefault(); replaceMode = false; $('replacerow').hidden = true; openSearch(); }
+  else if (k === 'h') { e.preventDefault(); openReplace(); }
+  else if (k === 's') {                       // autosave makes this a no-op, but the reflex deserves reassurance
+    e.preventDefault();
+    if (tree) { clearTimeout(saveTimer); save(); }
+  }
+  else if ((k === 'b' || k === 'i') && document.activeElement === $('focusbody') && !readonly) {
+    e.preventDefault();
+    const sel = getSelection().toString();
+    if (sel && !sel.includes('\n')) {
+      const m = k === 'b' ? '**' : '*';
+      document.execCommand('insertText', false, m + sel + m);   // fires input -> body syncs
+    }
+  }
 });
 
 // ---- tags ----
