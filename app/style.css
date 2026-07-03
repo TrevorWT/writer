@@ -157,7 +157,7 @@
 
   #panels { flex:1; min-height:0; display:flex; flex-wrap:nowrap; justify-content:safe center; align-items:center; overflow-x:auto; padding:16px 30px 24px; animation:fadein .18s ease-out; }
   /* row cards keep a bookish proportion instead of stretching full height */
-  #main:not(.grid) #panels .panel { height:min(62vh, calc(var(--panelw, 420px) * 1.18)); }
+  #main:not(.grid) #panels .panel { height:min(72vh, calc(var(--panelw, 420px) * 1.5)); }   /* 6x9 trade-book page ratio */
   #main:not(.grid) #panels .gap { align-self:stretch; }
   @keyframes fadein { from { opacity:0; transform:scale(.97); } to { opacity:1; transform:none; } }
   .panel { flex:0 0 clamp(260px, var(--panelw, 420px), 700px); background:var(--paper); border:1px solid var(--line); border-radius:10px; padding:28px 26px; margin:4px 0; cursor:pointer; display:flex; flex-direction:column; box-shadow:0 6px 18px var(--shadow); transition:transform .12s, background .12s; overflow:hidden; position:relative; }
