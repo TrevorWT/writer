@@ -963,7 +963,7 @@ function countsForTemplate(tpl, depth, count) {
 }
 
 // ---- text settings (persisted) ----
-const SETTINGS = { measure: { unit: 'px', def: 720 }, fsize: { unit: 'px', def: 17 }, lheight: { unit: '', def: 1.7 }, panelw: { unit: 'px', def: 420 }, gridw: { unit: 'px', def: 180 } };
+const SETTINGS = { measure: { unit: 'px', def: 720 }, fsize: { unit: 'px', def: 17 }, lheight: { unit: '', def: 1.7 }, panelw: { unit: 'px', def: 420 }, gridw: { unit: 'px', def: 180 }, pfsize: { unit: 'px', def: 14 } };
 const stored = JSON.parse(localStorage.getItem('writer-text') || '{}');
 for (const key in SETTINGS) {
   const s = SETTINGS[key], input = $('s-' + key);
