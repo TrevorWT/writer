@@ -295,7 +295,7 @@ window.addEventListener('unhandledrejection', e => reportErr('async: ' + (e.reas
     <span id="histbtns" hidden><button id="undobtn" title="Undo move/delete (Ctrl+Z)" disabled></button><button id="redobtn" title="Redo (Ctrl+Y)" disabled></button></span>
     <div id="crumbpath"></div>
     <div id="topsearch" hidden title="Search (Ctrl+P)"><span id="tsicon" style="display:flex"></span><input id="searchinput" placeholder="Search story..." autocomplete="off"><div id="searchdrop" hidden><div id="replacerow" hidden><input id="replaceinput" placeholder="Replace with..." autocomplete="off"><button id="replaceall" type="button">Replace all</button></div><div id="searchresults"></div></div></div>
-    <div id="topbtns"><button id="gridbtn" hidden title="Toggle grid view for panels"></button><button id="panelsbtn" hidden title="Show/hide the section panels"></button><button id="modebtn" hidden title="Toggle read-only (like Obsidian's reading view)"></button></div>
+    <div id="topbtns"><div id="viewseg" hidden><button id="view-row" title="Row view"></button><button id="view-grid" title="Grid view"></button><button id="view-hidden" title="Hide panels (text only)"></button></div><button id="modebtn" hidden title="Toggle read-only (like Obsidian's reading view)"></button></div>
   </div>
   <div id="focus" hidden>
     <div id="focuskind"></div>

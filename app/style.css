@@ -343,3 +343,9 @@
   .edgeadd:hover .ghostpanel { opacity:.85; }
   .ghostplus { font-size:22px; color:var(--dim); font-family:system-ui,sans-serif; }
   .edgeadd:hover .ghostplus { color:var(--text); }
+  /* segmented view switcher: row / grid / hidden */
+  #viewseg { display:flex; background:var(--btn); border-radius:6px; padding:2px; gap:1px; margin-right:6px; }
+  #viewseg[hidden] { display:none; }
+  #viewseg button { width:28px; height:26px; border:none; border-radius:5px; background:transparent; color:var(--dim); padding:0; display:flex; align-items:center; justify-content:center; cursor:pointer; }
+  #viewseg button:hover { color:var(--text); }
+  #viewseg button.active { background:var(--bg); color:var(--text); box-shadow:0 1px 3px var(--shadow); }

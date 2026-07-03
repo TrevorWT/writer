@@ -20,6 +20,9 @@ document.getElementById('newtag').innerHTML = icon('plus', 14);
 document.getElementById('undobtn').innerHTML = icon('undo', 14);
 document.getElementById('redobtn').innerHTML = icon('redo', 14);
 document.getElementById('modebtn').innerHTML = icon('pencil', 15);
+document.getElementById('view-row').innerHTML = icon('columns', 14);
+document.getElementById('view-grid').innerHTML = icon('grid', 14);
+document.getElementById('view-hidden').innerHTML = icon('square', 14);
 document.getElementById('storyinfobtn').innerHTML = icon('pencil', 12);
 document.getElementById('historybtn').innerHTML = icon('history', 12);
 document.getElementById('snapbtn').innerHTML = icon('camera', 13) + ' Snapshot now';
@@ -434,7 +437,6 @@ function render() {
     $('edgeright').hidden = !sceneView;
   }
   $('histbtns').hidden = !has || !!currentTag;
-  $('panelsbtn').hidden = !has || !focusHasChildren();
   $('crumbpath').innerHTML = '';
   $('panels').innerHTML = '';
   if (!has) { $('timeline').hidden = true; return; }
@@ -474,11 +476,10 @@ function render() {
   }
   $('main').classList.toggle('writing', !f.children.length && (f.depth > 0 || !!currentTag));
   $('main').classList.toggle('hidepanels', panelsHidden && f.children.length > 0);
-  $('panelsbtn').innerHTML = panelsHidden ? icon('square', 15) : icon('columns', 15);
-  $('panelsbtn').title = panelsHidden ? 'Show the section panels' : 'Hide the section panels';
-  $('gridbtn').hidden = !has || !focusHasChildren() || panelsHidden;
-  $('gridbtn').innerHTML = layout.grid ? icon('rows', 15) : icon('grid', 15);
-  $('gridbtn').title = layout.grid ? 'Switch to row view' : 'Switch to grid view';
+  $('viewseg').hidden = !has || !focusHasChildren();
+  $('view-row').classList.toggle('active', !panelsHidden && !layout.grid);
+  $('view-grid').classList.toggle('active', !panelsHidden && !!layout.grid);
+  $('view-hidden').classList.toggle('active', panelsHidden);
   $('main').classList.toggle('grid', !!layout.grid);
   const ft = $('focustitle');
   const titleEditable = f.depth > 0 && !readonly;
@@ -995,8 +996,9 @@ function addSibling(after) {
 }
 $('edgeleft').onclick = () => addSibling(false);
 $('edgeright').onclick = () => addSibling(true);
-$('panelsbtn').onclick = () => { panelsHidden = !panelsHidden; render(); };
-$('gridbtn').onclick = () => { layout.grid = !layout.grid; saveLayout(); render(); };
+$('view-row').onclick = () => { panelsHidden = false; layout.grid = false; saveLayout(); render(); };
+$('view-grid').onclick = () => { panelsHidden = false; layout.grid = true; saveLayout(); render(); };
+$('view-hidden').onclick = () => { panelsHidden = true; render(); };
 
 // ---- layout: collapsible sidebar, drag-resizable sidebar & notes ----
 const layout = JSON.parse(localStorage.getItem('writer-layout') || '{}');
