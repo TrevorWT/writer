@@ -26,6 +26,7 @@ window.addEventListener('unhandledrejection', e => reportErr('async: ' + (e.reas
   <div class="ribbtn" id="statsbtn" title="Writing statistics"></div>
   <div style="flex:1"></div>
   <div class="ribbtn" id="guidebtn" title="How Writer works"></div>
+  <div class="ribbtn" id="readbtn" title="Read the compiled story"></div>
   <div class="ribbtn" id="exportbtn" title="Export / compile"></div>
   <div class="ribbtn" id="settingsbtn" title="Settings"></div>
 </div>
@@ -332,6 +333,10 @@ window.addEventListener('unhandledrejection', e => reportErr('async: ' + (e.reas
       <h2>Statistics</h2>
     </div>
     <div id="statsbody"></div>
+  </div>
+  <div id="readview" hidden>
+    <div id="readbar"></div>
+    <div id="readscroll"><div id="readdoc"></div></div>
   </div>
   <div id="statusrow"><span id="savestatus">No story open</span><span id="sectionstatus" hidden></span><span id="goalpill" hidden></span></div>
   <div id="hint">

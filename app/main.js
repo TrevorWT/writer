@@ -11,6 +11,7 @@ setIcon('sidetoggle', icon('sidebar', 18));
 setIcon('settingsbtn', icon('gear', 17));
 setIcon('guidebtn', icon('help', 17));
 setIcon('exportbtn', icon('upload', 17));
+setIcon('readbtn', icon('book', 17));
 setIcon('statsbtn', icon('chart', 17));
 setIcon('tsicon', icon('search', 13));
 setIcon('samplebtn', icon('book', 14));
@@ -495,6 +496,7 @@ let panelsHidden = false;
 
 function render() {
   $('statsview').hidden = true;   // any navigation dismisses the stats overlay
+  $('readview').hidden = true;    // ...and the read overlay
   const has = !!tree;
   $('main').classList.toggle('empty', !has);
   $('hint').hidden = has;
@@ -1246,6 +1248,7 @@ $('main').addEventListener('wheel', e => {
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
   if (!$('statsview').hidden) { $('statsview').hidden = true; return; }
+  if (!$('readview').hidden) { $('readview').hidden = true; return; }
   if (!$('searchdrop').hidden) { closeSearch(); return; }
   if ($('ctxmenu')) { closeCtx(); return; }
   if (curMark) { closeAnnot(); return; }
@@ -2235,17 +2238,26 @@ function titlePageData(root) {
     author: storyMeta.author || '',
   };
 }
-function mdToHtml(md, title, tp) {
-  const blocks = md.split('\n\n').map(b => {
+function mdBlocksHtml(md) {
+  return md.split('\n\n').map(b => {
     const h = b.match(/^(#{1,6}) (.*)$/s);
     if (h) return `<h${h[1].length}>${esc(h[2])}</h${h[1].length}>`;
     if (b.trim() === '* * *') return '<p class="sep">&#42; &#42; &#42;</p>';   // entity-escaped so the emphasis regex can't eat it
     return b.split(/\n\n+/).map(p => '<p>' + esc(p).replace(/\n/g, '<br>') + '</p>').join('');
-  }).join('\n');
-  const titlePage = tp ? `<div class="titlepage">
+  }).join('\n')
+    .replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*([^*\n]+)\*/g, '<em>$1</em>')
+    .replace(/_([^_\n]+)_/g, '<em>$1</em>');
+}
+function titlePageHtml(title, tp) {
+  return tp ? `<div class="titlepage">
     <div class="tp-head"><div class="tp-contact">${tp.contact.map(esc).join('<br>')}</div><div class="tp-wc">approx. ${tp.approx} words</div></div>
     <div class="tp-mid"><h1>${esc(title)}</h1>${tp.by ? `<p class="tp-by">by ${esc(tp.by)}</p>` : ''}</div>
   </div>` : `<h1>${esc(title)}</h1>`;
+}
+function mdToHtml(md, title, tp) {
+  const blocks = mdBlocksHtml(md);
+  const titlePage = titlePageHtml(title, tp);
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${esc(title)}</title><style>
   body{font-family:Georgia,serif;max-width:640px;margin:40px auto;padding:0 20px;line-height:1.7;color:#222}
   h1,h2,h3,h4{line-height:1.3} .sep{text-align:center;margin:2em 0}
@@ -2256,11 +2268,63 @@ function mdToHtml(md, title, tp) {
   .tp-mid{flex:1;display:flex;flex-direction:column;justify-content:center;text-align:center}
   .tp-by{margin-top:.4em;font-size:1.15em}
   @media print{body{margin:0;max-width:none}.titlepage{min-height:auto;height:95vh;page-break-after:always}}
-  </style></head><body>${titlePage}\n${blocks
-    .replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*([^*\n]+)\*/g, '<em>$1</em>')
-    .replace(/_([^_\n]+)_/g, '<em>$1</em>')}\n</body></html>`;
+  </style></head><body>${titlePage}\n${blocks}\n</body></html>`;
 }
+
+// ---- read view: the compiled manuscript rendered in-app, options update live ----
+function readOpts() {
+  const H = treeHeight(storyTree);
+  const layers = {};
+  for (let li = H - 1; li >= 0; li--) {
+    const t = $(`rd-l-title-${li}`);
+    if (t) layers[li] = { title: t.checked, contents: $(`rd-l-contents-${li}`).checked, numbers: $(`rd-l-numbers-${li}`).checked };
+  }
+  return { sep: $('rd-sep').value, H, layers };
+}
+function renderReadDoc() {
+  const md = compileNode(storyTree, storyTree.depth, readOpts()).join('\n\n');
+  const tp = $('rd-titlepage').checked ? titlePageData(storyTree) : null;
+  $('readdoc').innerHTML = titlePageHtml(storyTree.title, tp) + mdBlocksHtml(md);
+}
+function buildReadBar() {
+  const bar = $('readbar');
+  bar.innerHTML = '';
+  const group = (name, inner) => {
+    const g = document.createElement('span');
+    g.className = 'rdgroup';
+    if (name) { const b = document.createElement('b'); b.textContent = name; g.appendChild(b); }
+    inner(g);
+    bar.appendChild(g);
+  };
+  const cb = (id, label, checked) => {
+    const l = document.createElement('label');
+    const c = document.createElement('input');
+    c.type = 'checkbox'; c.id = id; c.checked = checked; c.onchange = renderReadDoc;
+    l.append(c, label);
+    return l;
+  };
+  group('', g => g.appendChild(cb('rd-titlepage', 'title page', !!prefs.exportTitlepage)));
+  const H = treeHeight(storyTree);
+  for (let li = H - 1; li >= 0; li--)
+    group(LADDER[Math.min(li, LADDER.length - 1)] + 's', g => {   // same defaults as export
+      g.append(cb(`rd-l-title-${li}`, 'titles', li > 0), cb(`rd-l-numbers-${li}`, 'numbers', li > 0), cb(`rd-l-contents-${li}`, 'text', li === 0));
+    });
+  group('', g => {
+    const sel = document.createElement('select');
+    sel.id = 'rd-sep';
+    sel.innerHTML = '<option value="* * *">* * * between scenes</option><option value="">blank line between scenes</option>';
+    sel.value = prefs.exportSep;
+    sel.onchange = renderReadDoc;
+    g.appendChild(sel);
+  });
+}
+$('readbtn').onclick = () => {
+  if (!$('readview').hidden) { $('readview').hidden = true; return; }
+  if (!storyTree) return;
+  buildReadBar();
+  renderReadDoc();
+  $('readview').hidden = false;
+};
 function download(name, text, type) {
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([text], { type }));
