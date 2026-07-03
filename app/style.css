@@ -157,7 +157,7 @@
 
   #panels { flex:1; min-height:0; display:flex; flex-wrap:nowrap; justify-content:safe center; align-items:stretch; overflow-x:auto; padding:16px 30px 24px; animation:fadein .18s ease-out; }
   @keyframes fadein { from { opacity:0; transform:scale(.97); } to { opacity:1; transform:none; } }
-  .panel { flex:0 0 clamp(320px, 28vw, 540px); background:var(--paper); border:1px solid var(--line); border-radius:10px; padding:28px 26px; margin:4px 0; cursor:pointer; display:flex; flex-direction:column; box-shadow:0 6px 18px var(--shadow); transition:transform .12s, background .12s; overflow:hidden; position:relative; }
+  .panel { flex:0 0 clamp(260px, var(--panelw, 420px), 700px); background:var(--paper); border:1px solid var(--line); border-radius:10px; padding:28px 26px; margin:4px 0; cursor:pointer; display:flex; flex-direction:column; box-shadow:0 6px 18px var(--shadow); transition:transform .12s, background .12s; overflow:hidden; position:relative; }
   .panel:hover { transform:translateY(-2px); background:var(--paper2); box-shadow:0 6px 18px var(--shadow); }
   .panel h4 { margin:0 0 14px; text-align:center; font-size:1.35em; font-weight:bold; min-height:1.2em; }
   .panel h4:empty::before { content:"untitled"; color:var(--ph); font-style:italic; font-weight:normal; }
@@ -177,7 +177,7 @@
   .gap.dragover { background:var(--accent); border-radius:3px; }
   /* grid view: many small panels, wrap + vertical scroll, for restructuring */
   #main.grid #panels { flex-wrap:wrap; overflow-y:auto; overflow-x:hidden; justify-content:flex-start; align-content:flex-start; }
-  #main.grid .panel { flex:0 0 180px; min-height:160px; max-height:210px; padding:12px 11px; margin:3px 0; }
+  #main.grid .panel { flex:0 0 var(--gridw, 180px); min-height:calc(var(--gridw, 180px) * 0.89); max-height:calc(var(--gridw, 180px) * 1.17); padding:12px 11px; margin:3px 0; }
   #main.grid .panel h4 { font-size:.92em; margin:0 0 6px; }
   #main.grid .panel .preview { font-size:.72em; line-height:1.45; }
   #main.grid .panel .kind { font-size:9px; margin-bottom:3px; }
