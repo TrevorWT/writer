@@ -513,12 +513,16 @@ function render() {
     wrap.appendChild(gapEl(f, i + 1));
   });
   if (layout.grid && !panelsHidden && f.children.length) {
-    const add = document.createElement('div');
-    add.className = 'panel addcard';
-    add.textContent = '+';
-    add.title = 'Add section';
-    add.onclick = () => addChild(f, f.children.length);
-    wrap.appendChild(add);
+    const ghost = at => {
+      const add = document.createElement('div');
+      add.className = 'panel addcard';
+      add.textContent = '+';
+      add.title = 'Add section';
+      add.onclick = () => addChild(f, at());
+      return add;
+    };
+    wrap.insertBefore(ghost(() => 0), wrap.firstChild);
+    wrap.appendChild(ghost(() => f.children.length));
   }
 
   renderTimeline();
@@ -750,6 +754,18 @@ function panelEl(node) {
     if (e.target.isContentEditable) return;
     path.push(node); render();
   };
+  if (layout.grid) {
+    const gp = document.createElement('div');
+    gp.className = 'gplus';
+    gp.textContent = '+';
+    gp.title = 'Add section after this one';
+    gp.onclick = e => {
+      e.stopPropagation();
+      const par = focus();
+      addChild(par, par.children.indexOf(node) + 1);
+    };
+    el.appendChild(gp);
+  }
   el._node = node;
   makeDraggable(el, node);
   // drop ON a panel = insert before it (reorder); Alt+drop = nest inside it.

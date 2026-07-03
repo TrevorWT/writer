@@ -353,8 +353,14 @@
   #viewseg button:hover { color:var(--text); }
   #viewseg button.active { background:var(--bg); color:var(--text); box-shadow:0 1px 3px var(--shadow); }
   /* grid: no inter-card gaps (they break row alignment); real gutters + add-card */
-  #main.grid #panels { gap:10px; }
+  #main.grid #panels { gap:18px; }
   #main.grid #panels .gap:not(.bigwrap) { display:none; }
   #main.grid #panels .panel { margin:0; }
   .addcard { border-style:dashed !important; background:transparent !important; box-shadow:none !important; display:flex; align-items:center; justify-content:center; color:var(--dim); font-size:26px; }
   .addcard:hover { color:var(--text); border-color:var(--dim) !important; transform:none !important; }
+  /* grid: hover a card to reveal + in the gutter after it */
+  #main.grid .panel { overflow:visible; }
+  #main.grid .panel .preview { overflow:hidden; }
+  .gplus { position:absolute; top:50%; right:-20px; transform:translateY(-50%); width:22px; height:22px; border-radius:50%; background:var(--btn); border:1px solid var(--line); color:var(--dim); display:flex; align-items:center; justify-content:center; font-size:15px; line-height:1; opacity:0; transition:opacity .12s; z-index:6; cursor:pointer; }
+  .panel:hover .gplus { opacity:1; }
+  .gplus:hover { background:var(--accent); border-color:var(--accent); color:#111; }
