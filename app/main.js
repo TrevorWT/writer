@@ -2315,9 +2315,10 @@ function renderReadDoc() {
   for (let i = 0; i < hs.length; i++) {
     const n = opts.titles[i];
     if (!n || !n.children.length) continue;   // scenes stay out of the outline
+    const lvl = n.depth - storyTree.depth - 1;   // 0 = outermost container (parts before chapters)
     const row = document.createElement('div');
-    row.className = 'rdtocrow';
-    row.style.paddingLeft = (10 + (n.depth - storyTree.depth - 1) * 14) + 'px';
+    row.className = 'rdtocrow rdt' + Math.min(lvl, 2);
+    row.style.paddingLeft = (8 + lvl * 16) + 'px';
     row.textContent = hs[i].textContent;
     row.onclick = () => hs[i].scrollIntoView({ behavior: 'smooth', block: 'start' });
     toc.appendChild(row);
