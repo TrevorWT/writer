@@ -27,6 +27,8 @@ document.getElementById('upzoneicon').innerHTML = icon('arrowup', 16);
 document.getElementById('upbtn').innerHTML = icon('arrowup', 18);
 document.getElementById('prevbtn').innerHTML = icon('chevleft', 18);
 document.getElementById('nextbtn').innerHTML = icon('chevright', 18);
+document.getElementById('addleftbtn').innerHTML = icon('chevleft', 12) + icon('plus', 15);
+document.getElementById('addrightbtn').innerHTML = icon('plus', 15) + icon('chevright', 12);
 document.getElementById('statsbtn').innerHTML = icon('chart', 17);
 
 const KIND = ['Story', 'Part', 'Chapter', 'Scene', 'Page', 'Section', 'Section'];
@@ -977,6 +979,18 @@ function gotoSibling(dir) {
 }
 $('prevbtn').onclick = () => gotoSibling(-1);
 $('nextbtn').onclick = () => gotoSibling(1);
+function addSibling(after) {
+  if (path.length < 2) return;
+  pushUndo();
+  const par = path[path.length - 2];
+  const i = par.children.indexOf(path[path.length - 1]);
+  const node = { depth: par.depth + 1, title: '', body: '', notes: '', children: [] };
+  par.children.splice(after ? i + 1 : i, 0, node);
+  path[path.length - 1] = node;    // land in the fresh section, ready to write
+  save(); render();
+}
+$('addleftbtn').onclick = () => addSibling(false);
+$('addrightbtn').onclick = () => addSibling(true);
 $('panelsbtn').onclick = () => { panelsHidden = !panelsHidden; render(); };
 $('gridbtn').onclick = () => { layout.grid = !layout.grid; saveLayout(); render(); };
 

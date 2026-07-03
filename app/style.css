@@ -118,6 +118,8 @@
   .navbtn:hover:not(:disabled) { background:var(--accent); border-color:var(--accent); color:#111; }
   body.light .navbtn:hover:not(:disabled) { color:#fff; }
   .navbtn:disabled { opacity:.3; cursor:default; box-shadow:none; }
+  .navsep { width:8px; }
+  .navbtn svg + svg { margin-left:-3px; }
   #focuskind { font-family:system-ui,sans-serif; font-size:11px; text-transform:uppercase; letter-spacing:.15em; color:var(--dim); margin-bottom:6px; }
   #focusbody { text-align:left; white-space:pre-wrap; font-size:var(--fsize); line-height:var(--lheight); margin:14px 0 6px; cursor:text; min-height:1.5em; max-height:20vh; overflow-y:auto; color:var(--text2); }
   #focusbody:empty::before { content:"click to write…"; color:var(--ph); font-style:italic; }
