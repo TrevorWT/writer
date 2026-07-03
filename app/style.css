@@ -169,8 +169,10 @@
   .panel .pdel:hover { background:#4a3038; color:#f0a0a8; }
   .panel .kind { text-align:center; font-family:system-ui,sans-serif; font-size:10px; letter-spacing:.14em; text-transform:uppercase; color:var(--dim); margin-bottom:6px; }
   .panel .preview { font-size:1em; line-height:1.65; color:var(--text3); white-space:pre-wrap; flex:1; overflow:hidden; }
-  .panel .fade { position:absolute; bottom:0; left:0; right:0; height:46px; background:linear-gradient(transparent, var(--paper)); pointer-events:none; }
-  .panel:hover .fade { background:linear-gradient(transparent, var(--paper2)); }
+  .panel .fade { display:none; }
+  .panel .preview { position:relative; }
+  .panel .preview::after { content:""; position:absolute; bottom:0; left:0; right:0; height:40px; background:linear-gradient(transparent, var(--paper)); pointer-events:none; }
+  .panel:hover .preview::after { background:linear-gradient(transparent, var(--paper2)); }
   .panel .count { position:absolute; bottom:6px; right:10px; font-family:system-ui,sans-serif; font-size:11px; color:var(--dim); z-index:1; }
 
   .gap { width:42px; align-self:stretch; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
@@ -365,5 +367,3 @@
   .panel:hover .gplus { opacity:1; }
   .gplus:hover { border-color:var(--accent); color:var(--accent); border-style:solid; background:var(--hover); }
   .gplus.left { right:auto; left:-24px; }
-  /* grid cards: text fades out at the bottom instead of hard-clipping */
-  #main.grid .panel .fade { display:block; height:34px; border-radius:0 0 8px 8px; }
