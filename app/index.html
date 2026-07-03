@@ -245,6 +245,7 @@ window.addEventListener('unhandledrejection', e => reportErr('async: ' + (e.reas
   </div>
   <div id="panels"></div>
   <div id="timeline" hidden><div id="track"></div></div>
+  <div id="statusrow"><span id="savestatus">No story open</span><span id="goalpill" hidden></span></div>
   <div id="hint">Open a folder to begin.<br><small>Each story is a folder of plain markdown - Obsidian-compatible.<br>Click a panel to open it. Ctrl+scroll up over a panel to dive in, ctrl+scroll down to back out.<br>Layers name themselves: leaves are scenes; nest inside one and it becomes a chapter, then a part, then a book.<br>Tagged names auto-link everywhere they appear.</small></div>
 </div>
 
@@ -262,8 +263,6 @@ window.addEventListener('unhandledrejection', e => reportErr('async: ' + (e.reas
   <div id="notestext" contenteditable="plaintext-only"></div>
   <div id="annotlist"></div>
 </div>
-<div id="savestatus">No story open</div>
-<div id="goalpill" hidden></div>
 
 <script type="module" src="main.js"></script>
 </body>

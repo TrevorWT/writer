@@ -237,11 +237,12 @@
   #ctxmenu .item:hover { background:var(--btn); }
   #ctxmenu .item.new { color:var(--dim); font-style:italic; text-transform:none; }
 
-  #savestatus { position:fixed; left:52px; bottom:10px; z-index:70; background:var(--pop); border:1px solid var(--line); border-radius:6px; padding:4px 9px; color:var(--dim); font:12px system-ui,sans-serif; box-shadow:0 3px 12px var(--shadow); pointer-events:none; }
-  #savestatus.err { color:#f0a0a8; border-color:#7a3a44; }
-
-  #goalpill { position:fixed; left:52px; bottom:42px; z-index:70; background:var(--pop); border:1px solid var(--line); border-radius:6px; padding:4px 9px; color:var(--dim); font:12px system-ui,sans-serif; box-shadow:0 3px 12px var(--shadow); pointer-events:none; }
-  #goalpill.met { color:#a3d9a5; border-color:#3e7d41; }
+  /* slim status bar under the timeline — nothing overlays the page graph */
+  #statusrow { flex-shrink:0; display:flex; align-items:center; gap:16px; padding:3px 16px 6px; font:12px system-ui,sans-serif; color:var(--dim); border-top:1px solid var(--line); }
+  #savestatus.err { color:#f0a0a8; }
+  #goalpill { margin-left:auto; }
+  #goalpill.met { color:#a3d9a5; }
+  body.light #goalpill.met { color:#3e7d41; }
 
   .statuschip { position:absolute; bottom:6px; left:10px; z-index:2; font:10px system-ui,sans-serif; text-transform:uppercase; letter-spacing:.06em; padding:1px 8px; border-radius:99px; border:1px solid; cursor:pointer; background:var(--paper); }
   .st-none { color:var(--ph); border-color:var(--ph); border-style:dashed; }
