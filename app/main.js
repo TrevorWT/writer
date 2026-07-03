@@ -5,43 +5,43 @@ const FS = initFS();
 
 import { icon } from './icons.js';
 
-// static chrome icons
-document.getElementById('sidetoggle').innerHTML = icon('sidebar', 18);
-document.getElementById('settingsbtn').innerHTML = icon('gear', 17);
-document.getElementById('guidebtn').innerHTML = icon('help', 17);
+// static chrome icons — null-safe so a stale cached page can't kill startup
+const setIcon = (id, html) => { const el = document.getElementById(id); if (el) el.innerHTML = html; };
+setIcon('sidetoggle', icon('sidebar', 18));
+setIcon('settingsbtn', icon('gear', 17));
+setIcon('guidebtn', icon('help', 17));
+setIcon('exportbtn', icon('upload', 17));
+setIcon('statsbtn', icon('chart', 17));
+setIcon('tsicon', icon('search', 13));
+setIcon('samplebtn', icon('book', 14));
+setIcon('openbtn', icon('folder', 14));
+setIcon('hintopen', icon('folder', 14) + ' Open a folder');
+setIcon('hintsample', icon('book', 14) + ' Try the sample');
+setIcon('hintnew', icon('plus', 14) + ' New Story');
+setIcon('newstory', icon('plus', 14));
+setIcon('newtag', icon('plus', 14));
+setIcon('undobtn', icon('undo', 14));
+setIcon('redobtn', icon('redo', 14));
+setIcon('modebtn', icon('pencil', 15) + ' Edit');
+setIcon('view-row', icon('columns', 14));
+setIcon('view-grid', icon('grid', 14));
+setIcon('view-hidden', icon('square', 14));
+setIcon('storyinfobtn', icon('pencil', 12));
+setIcon('historybtn', icon('history', 12));
+setIcon('snapbtn', icon('camera', 13) + ' Snapshot now');
+setIcon('upzoneicon', icon('arrowup', 16));
+setIcon('upbtn', icon('arrowup', 18));
+setIcon('prevbtn', icon('chevleft', 18));
+setIcon('nextbtn', icon('chevright', 18));
 document.querySelectorAll('#guidedlg .gicon').forEach(el => { el.innerHTML = icon(el.dataset.i, 17); });
-document.getElementById('guidebtn').onclick = () => document.getElementById('guidedlg').showModal();
-document.getElementById('guideclose').onclick = () => {
-  localStorage.setItem('writer-toured', '1');
-  document.getElementById('guidedlg').close();
-};
-if (!localStorage.getItem('writer-toured')) {
-  setTimeout(() => document.getElementById('guidedlg').showModal(), 400);
+{
+  const gb = document.getElementById('guidebtn'), gd = document.getElementById('guidedlg');
+  if (gb && gd) {
+    gb.onclick = () => gd.showModal();
+    document.getElementById('guideclose').onclick = () => { localStorage.setItem('writer-toured', '1'); gd.close(); };
+    if (!localStorage.getItem('writer-toured')) setTimeout(() => gd.showModal(), 400);
+  }
 }
-document.getElementById('exportbtn').innerHTML = icon('upload', 17);
-document.getElementById('tsicon').innerHTML = icon('search', 13);
-document.getElementById('samplebtn').innerHTML = icon('book', 14);
-document.getElementById('openbtn').innerHTML = icon('folder', 14);
-document.getElementById('newstory').innerHTML = icon('plus', 14);
-document.getElementById('hintopen').innerHTML = icon('folder', 14) + ' Open Library Folder';
-document.getElementById('hintsample').innerHTML = icon('book', 14) + ' Open Sample Library';
-document.getElementById('hintnew').innerHTML = icon('plus', 14) + ' New Story';
-document.getElementById('newtag').innerHTML = icon('plus', 14);
-document.getElementById('undobtn').innerHTML = icon('undo', 14);
-document.getElementById('redobtn').innerHTML = icon('redo', 14);
-document.getElementById('modebtn').innerHTML = icon('pencil', 15) + ' Edit';
-document.getElementById('view-row').innerHTML = icon('columns', 14);
-document.getElementById('view-grid').innerHTML = icon('grid', 14);
-document.getElementById('view-hidden').innerHTML = icon('square', 14);
-document.getElementById('storyinfobtn').innerHTML = icon('pencil', 12);
-document.getElementById('historybtn').innerHTML = icon('history', 12);
-document.getElementById('snapbtn').innerHTML = icon('camera', 13) + ' Snapshot now';
-document.getElementById('upzoneicon').innerHTML = icon('arrowup', 16);
-document.getElementById('upbtn').innerHTML = icon('arrowup', 18);
-document.getElementById('prevbtn').innerHTML = icon('chevleft', 18);
-document.getElementById('nextbtn').innerHTML = icon('chevright', 18);
-
-document.getElementById('statsbtn').innerHTML = icon('chart', 17);
 
 const KIND = ['Story', 'Part', 'Chapter', 'Scene', 'Page', 'Section', 'Section'];
 let libPath = null, storyPath = null, storyName = '', storyTree = null;
