@@ -25,9 +25,7 @@
   #sidegrip:hover, #sidegrip.dragging { background:linear-gradient(to right, transparent 3px, var(--accent) 3px, var(--accent) 4px, transparent 4px); }
   .sechead { display:flex; align-items:center; text-transform:uppercase; font-size:11px; font-weight:600; letter-spacing:.07em; color:var(--dim); padding:5px 4px 3px; margin-top:8px; user-select:none; }
   .sechead .secbtns { margin-left:auto; display:flex; gap:2px; }
-  .secbtn { width:calc(var(--ui) * 1.55); height:calc(var(--ui) * 1.55); display:flex; align-items:center; justify-content:center; border-radius:4px; cursor:pointer; color:var(--dim); font-size:var(--ui); visibility:hidden; }
-  #sidebar:hover .secbtn { visibility:visible; }
-  #librarysection #samplebtn, #librarysection #openbtn { visibility:visible; }
+  .secbtn { width:calc(var(--ui) * 1.55); height:calc(var(--ui) * 1.55); display:flex; align-items:center; justify-content:center; border-radius:4px; cursor:pointer; color:var(--dim); font-size:var(--ui); }
   .secbtn:hover { background:var(--btn); color:var(--text); }
   #storylist:empty::before { content:"Open a library folder ↑"; color:var(--ph); font-style:italic; font-size:12px; padding:2px 6px; display:block; }
   #backlib { color:var(--dim); cursor:pointer; font-size:11px; padding:4px 4px 0; }
