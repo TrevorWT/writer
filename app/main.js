@@ -1223,6 +1223,7 @@ function tlPreview(e) {
 let acc = 0;
 $('main').addEventListener('wheel', e => {
   if (!tree) return;
+  if (e.target.closest('#readview')) return;   // preview scrolls natively
   if (e.ctrlKey) {
     e.preventDefault();
     acc += e.deltaY;

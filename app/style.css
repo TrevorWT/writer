@@ -352,7 +352,7 @@
   .rdtocrow.rdt2 { font-size:12.5px; }
   #readdoc .rdjump { cursor:pointer; }
   #readdoc .rdjump:hover { text-decoration:underline; text-decoration-style:dotted; text-underline-offset:6px; }
-  #readscroll { flex:1; overflow-y:auto; padding:28px 24px 64px; }
+  #readscroll { height:100%; overflow-y:auto; padding:28px 24px 64px; }
   #readdoc { max-width:var(--measure); margin:0 auto; padding:20px 24px 72px; font-family:Georgia,serif; font-size:var(--fsize); line-height:var(--lheight); color:var(--text); }
   #readdoc h1, #readdoc h2, #readdoc h3, #readdoc h4, #readdoc h5, #readdoc h6 { line-height:1.3; text-align:center; }
   #readdoc .sep { text-align:center; margin:2em 0; }
