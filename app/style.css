@@ -355,7 +355,7 @@
   #viewseg button:hover { color:var(--text); }
   #viewseg button.active { background:var(--bg); color:var(--text); box-shadow:0 1px 3px var(--shadow); }
   /* grid: no inter-card gaps (they break row alignment); real gutters + add-card */
-  #main.grid #panels { gap:28px; }
+  #main.grid #panels { gap:36px; }
   #main.grid #panels .gap:not(.bigwrap) { display:none; }
   #main.grid #panels .panel { margin:0; }
   .addcard { border-style:dashed !important; background:transparent !important; box-shadow:none !important; display:flex; align-items:center; justify-content:center; color:var(--dim); font-size:26px; }
@@ -363,8 +363,8 @@
   /* grid: hover a card to reveal + in the gutter after it */
   
   .gplus { position:absolute; top:0; bottom:0; width:20px; border-radius:7px; background:transparent; border:2px dashed var(--dim); color:var(--dim); display:flex; align-items:center; justify-content:center; opacity:0; transition:opacity .12s; z-index:6; cursor:pointer; }
-  #main.grid .gplus { right:-24px; }
-  #main.grid .gplus.left { right:auto; left:-24px; }
+  #main.grid .gplus { right:-28px; }
+  #main.grid .gplus.left { right:auto; left:-28px; }
   #main:not(.grid) .gplus { right:-31px; }
   #main:not(.grid) .gplus.left { right:auto; left:-31px; }
   .panel:hover .gplus { opacity:1; }
