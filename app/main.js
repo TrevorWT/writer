@@ -23,7 +23,6 @@ document.getElementById('modebtn').innerHTML = icon('pencil', 13) + ' editing';
 document.getElementById('storyinfobtn').innerHTML = icon('pencil', 12);
 document.getElementById('restorebtn').innerHTML = icon('undo', 12);
 document.getElementById('statsbtn').innerHTML = icon('chart', 17);
-document.getElementById('statsclose').innerHTML = icon('x', 16);
 
 const KIND = ['Story', 'Part', 'Chapter', 'Scene', 'Page', 'Section', 'Section'];
 let libPath = null, storyPath = null, storyName = '', storyTree = null;
@@ -282,6 +281,7 @@ const focusHasChildren = () => tree && focus().children.length > 0;
 let panelsHidden = false;
 
 function render() {
+  $('statsview').hidden = true;   // any navigation dismisses the stats overlay
   const has = !!tree;
   $('main').classList.toggle('empty', !has);
   $('hint').hidden = has;
@@ -1662,9 +1662,8 @@ async function openStats() {
   $('statsview').hidden = false;
   renderStats();
 }
-$('statsbtn').onclick = openStats;
+$('statsbtn').onclick = () => { if (!$('statsview').hidden) $('statsview').hidden = true; else openStats(); };
 $('statssel').onchange = renderStats;
-$('statsclose').onclick = () => { $('statsview').hidden = true; };
 
 // ---- library / stories ----
 async function openLibrary(path) {
