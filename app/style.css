@@ -390,3 +390,4 @@
   .hgroup summary:hover { background:var(--hover); }
   .hgroup[open] summary { border-bottom-style:dashed; }
   .hrow.hsub { padding-left:90px; background:var(--bg); }
+  #askinput[hidden] { display:none; }
