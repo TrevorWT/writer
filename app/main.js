@@ -4,6 +4,7 @@ import { initFS } from './fs.js';
 const FS = initFS();
 
 import { icon } from './icons.js';
+import { SAMPLE } from './sample.js';
 
 // static chrome icons — null-safe so a stale cached page can't kill startup
 const setIcon = (id, html) => { const el = document.getElementById(id); if (el) el.innerHTML = html; };
@@ -507,7 +508,7 @@ function render() {
       ? 'Pick an existing story, or create a new Markdown story folder.'
       : 'Stories are Markdown folders with layered sections.';
     $('hintopen').hidden = !!libPath;
-    $('hintsample').hidden = !!libPath;
+    $('hintsample').hidden = false;   // the sample is bundled, so it works with or without a library
     $('hintnew').hidden = !libPath;
     $('sectionstatus').hidden = true;
   }
@@ -2033,8 +2034,22 @@ async function openLibrary(path) {
   render();
 }
 $('samplebtn').onclick = async () => {
-  if (await FS.exists('sample-library').catch(() => false)) await openLibrary('sample-library');
-  else appAlert('Sample library was not found next to the app.');
+  if (!libPath) {   // sample lives in the library like any story: get a library first
+    const p = await FS.pickFolder();
+    if (!p) return;
+    await openLibrary(p);
+  }
+  const dir = FS.join(libPath, SAMPLE.name);
+  if (!(await FS.exists(dir).catch(() => false))) {
+    try {
+      await FS.mkdir(FS.join(dir, 'chapters'));
+      await FS.mkdir(FS.join(dir, 'tags/character'));
+      await FS.mkdir(FS.join(dir, 'tags/location'));
+      for (const [rel, text] of Object.entries(SAMPLE.files)) await FS.writeText(FS.join(dir, rel), text);
+    } catch (e) { reportErr('could not create the sample story: ' + (e.stack || e)); return; }
+    await listStories();
+  }
+  await openStory(SAMPLE.name);
 };
 $('openbtn').onclick = async () => {
   const p = await FS.pickFolder();
