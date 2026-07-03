@@ -383,3 +383,10 @@
   #main:not(.grid) .gplus { display:none; }
   .gplus:hover { opacity:1; }
   .gplus:hover { border-color:var(--accent); color:var(--accent); border-style:solid; background:var(--hover); }
+
+  .hgrouphead { margin:14px 0 4px; font-size:11px; text-transform:uppercase; letter-spacing:.07em; color:var(--dim); }
+  .hgroup summary { display:flex; align-items:center; gap:12px; padding:7px 4px; border-bottom:1px solid var(--line); cursor:pointer; font-size:13px; list-style:none; }
+  .hgroup summary::-webkit-details-marker { display:none; }
+  .hgroup summary:hover { background:var(--hover); }
+  .hgroup[open] summary { border-bottom-style:dashed; }
+  .hrow.hsub { padding-left:90px; background:var(--bg); }

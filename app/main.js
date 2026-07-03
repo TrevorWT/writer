@@ -207,6 +207,49 @@ async function restoreHistory(ent) {
     renderHistory();
   }
 }
+function timeAgo(ts) {
+  const m = (Date.now() - ts) / 60000;
+  if (m < 1) return 'just now';
+  if (m < 60) return Math.round(m) + ' min ago';
+  if (m < 1440) return Math.round(m / 60) + ' h ago';
+  if (m < 10080) return Math.round(m / 1440) + ' d ago';
+  return new Date(ts).toLocaleDateString();
+}
+function historyRow(ent, compact) {
+  const row = document.createElement('div');
+  row.className = 'hrow' + (compact ? ' hsub' : '');
+  if (!compact) {
+    const type = document.createElement('span');
+    type.className = 'htype t-' + ent.type;
+    type.textContent = ent.type === 'skeleton' ? 'backup' : ent.type;
+    row.appendChild(type);
+  }
+  const label = document.createElement('span');
+  label.className = 'hlabel';
+  label.textContent = compact ? timeAgo(ent.ts) : ent.label;
+  row.appendChild(label);
+  const date = document.createElement('span');
+  date.className = 'hdate';
+  date.textContent = compact ? new Date(ent.ts).toLocaleString() : timeAgo(ent.ts);
+  row.appendChild(date);
+  const rst = document.createElement('button');
+  rst.type = 'button';
+  rst.textContent = 'Restore';
+  rst.onclick = () => restoreHistory(ent);
+  row.appendChild(rst);
+  const del = document.createElement('span');
+  del.className = 'rowdel';
+  del.style.visibility = 'visible';
+  del.textContent = '✕';
+  del.title = 'Delete permanently';
+  del.onclick = async () => {
+    if (!(await appConfirm('Delete this history entry permanently?'))) return;
+    await FS.remove(FS.join(trashDir(), ent.file));
+    renderHistory();
+  };
+  row.appendChild(del);
+  return row;
+}
 async function renderHistory() {
   const list = $('historylist');
   list.innerHTML = '';
@@ -215,36 +258,58 @@ async function renderHistory() {
     list.innerHTML = '<p class="setting-note">Nothing here yet. Take a snapshot before a big rewrite - it saves the whole story as one file.</p>';
     return;
   }
-  for (const ent of ents) {
-    const row = document.createElement('div');
-    row.className = 'hrow';
-    const type = document.createElement('span');
-    type.className = 'htype t-' + ent.type;
-    type.textContent = ent.type === 'skeleton' ? 'backup' : ent.type;
-    const label = document.createElement('span');
-    label.className = 'hlabel';
-    label.textContent = ent.label;
-    const date = document.createElement('span');
-    date.className = 'hdate';
-    date.textContent = new Date(ent.ts).toLocaleString();
-    const rst = document.createElement('button');
-    rst.type = 'button';
-    rst.textContent = 'Restore';
-    rst.onclick = () => restoreHistory(ent);
-    const del = document.createElement('span');
-    del.className = 'rowdel';
-    del.style.visibility = 'visible';
-    del.textContent = '✕';
-    del.title = 'Delete permanently';
-    del.onclick = async () => {
-      if (!(await appConfirm('Delete this history entry permanently?'))) return;
-      await FS.remove(FS.join(trashDir(), ent.file));
-      renderHistory();
-    };
-    row.append(type, label, date, rst, del);
-    list.appendChild(row);
+  const snaps = ents.filter(e => e.type === 'snapshot');
+  const autos = ents.filter(e => e.type !== 'snapshot');
+  if (snaps.length) {
+    const h = document.createElement('div');
+    h.className = 'hgrouphead';
+    h.textContent = 'Snapshots - kept until you delete them';
+    list.appendChild(h);
+    for (const s of snaps) list.appendChild(historyRow(s, false));
+  }
+  if (autos.length) {
+    const h = document.createElement('div');
+    h.className = 'hgrouphead';
+    h.textContent = 'Automatic backups - older copies of overwritten or deleted files';
+    list.appendChild(h);
+    const groups = new Map();
+    for (const e of autos) {
+      const key = e.type + '|' + e.label;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(e);
+    }
+    for (const [, group] of groups) {
+      const latest = group[0];   // listHistory sorts newest first
+      if (group.length === 1) {
+        list.appendChild(historyRow(latest, false));
+        continue;
+      }
+      const det = document.createElement('details');
+      det.className = 'hgroup';
+      const sum = document.createElement('summary');
+      const type = document.createElement('span');
+      type.className = 'htype t-' + latest.type;
+      type.textContent = latest.type === 'skeleton' ? 'backup' : latest.type;
+      const label = document.createElement('span');
+      label.className = 'hlabel';
+      label.textContent = latest.label;
+      const meta = document.createElement('span');
+      meta.className = 'hdate';
+      meta.textContent = `${group.length} versions · latest ${timeAgo(latest.ts)}`;
+      sum.append(type, label, meta);
+      det.appendChild(sum);
+      for (const e of group) det.appendChild(historyRow(e, true));
+      list.appendChild(det);
+    }
   }
 }
+$('clearbackupsbtn').onclick = async () => {
+  const autos = (await listHistory()).filter(e => e.type !== 'snapshot');
+  if (!autos.length) return;
+  if (!(await appConfirm(`Permanently delete all ${autos.length} automatic backups? Snapshots are kept.`))) return;
+  for (const e of autos) await FS.remove(FS.join(trashDir(), e.file)).catch(() => {});
+  renderHistory();
+};
 $('historybtn').onclick = () => { $('historydlg').showModal(); renderHistory(); };
 $('snapbtn').onclick = async () => {
   const label = await appPrompt('Label this snapshot (optional):', '');
