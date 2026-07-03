@@ -1,11 +1,11 @@
-# Writer — alpha 0.2.0
+# Writer — alpha 0.2.5
 
 Thanks for testing! Writer is an app for planning and writing stories in one
 place: you zoom from the big picture down to the words.
 
 ## Installing
 
-Run `Writer_0.2.0_x64-setup.exe`. Windows SmartScreen will warn because the
+Run `Writer_0.2.5_x64-setup.exe`. Windows SmartScreen will warn because the
 alpha isn't code-signed yet — click **More info → Run anyway**.
 
 ## Getting started
@@ -18,7 +18,10 @@ alpha isn't code-signed yet — click **More info → Run anyway**.
    planning notes; they never end up in the exported manuscript.
 4. Highlight a character's name in your text → right-click → **Tag as
    character**. From then on every mention anywhere is a clickable link.
-5. Check Settings → **Hotkeys** for everything else (Ctrl+F search, Ctrl+H
+5. The book icon in the left ribbon is **Preview** — your whole story compiled
+   into one readable page, exactly as an export would come out. Click any
+   heading in it to jump back to that section and edit.
+6. Check Settings → **Hotkeys** for everything else (Ctrl+F search, Ctrl+H
    replace, drag panels to reorganize, right-click panels for status…).
 
 ## Your writing is safe
