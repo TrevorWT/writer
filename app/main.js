@@ -512,18 +512,7 @@ function render() {
     wrap.appendChild(panelEl(c));
     wrap.appendChild(gapEl(f, i + 1));
   });
-  if (layout.grid && !panelsHidden && f.children.length) {
-    const ghost = at => {
-      const add = document.createElement('div');
-      add.className = 'panel addcard';
-      add.textContent = '+';
-      add.title = 'Add section';
-      add.onclick = () => addChild(f, at());
-      return add;
-    };
-    wrap.insertBefore(ghost(() => 0), wrap.firstChild);
-    wrap.appendChild(ghost(() => f.children.length));
-  }
+
 
   renderTimeline();
   renderOutline();
@@ -755,16 +744,20 @@ function panelEl(node) {
     path.push(node); render();
   };
   if (layout.grid) {
-    const gp = document.createElement('div');
-    gp.className = 'gplus';
-    gp.textContent = '+';
-    gp.title = 'Add section after this one';
-    gp.onclick = e => {
-      e.stopPropagation();
-      const par = focus();
-      addChild(par, par.children.indexOf(node) + 1);
+    const mkPlus = (cls, title, at) => {
+      const gp = document.createElement('div');
+      gp.className = 'gplus' + cls;
+      gp.textContent = '+';
+      gp.title = title;
+      gp.onclick = e => {
+        e.stopPropagation();
+        const par = focus();
+        addChild(par, at(par));
+      };
+      el.appendChild(gp);
     };
-    el.appendChild(gp);
+    mkPlus('', 'Add section after this one', par => par.children.indexOf(node) + 1);
+    if (focus().children[0] === node) mkPlus(' left', 'Add section before this one', () => 0);
   }
   el._node = node;
   makeDraggable(el, node);
