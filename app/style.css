@@ -328,11 +328,13 @@
   #upzone.dragover { border-color:var(--accent); color:var(--accent); background:var(--hover); }
 
   /* scene view: hover an edge to reveal a ghost panel; click = new scene there */
-  .edgeadd { position:absolute; top:110px; bottom:100px; width:72px; z-index:30; display:flex; align-items:center; cursor:pointer; }
+  /* zones run from the text column out to the window edge; the ghost panel
+     sits right beside the text, sized like a real panel */
+  .edgeadd { position:absolute; top:110px; bottom:100px; z-index:30; display:flex; align-items:center; cursor:pointer; }
   .edgeadd[hidden] { display:none; }
-  #edgeleft { left:0; justify-content:flex-start; padding-left:10px; }
-  #edgeright { right:0; justify-content:flex-end; padding-right:10px; }
-  .ghostpanel { width:46px; height:64%; border:2px dashed var(--dim); border-radius:10px; background:var(--paper); opacity:0; transition:opacity .15s; display:flex; align-items:center; justify-content:center; }
+  #edgeleft { left:0; right:calc(50% + var(--measure) / 2 + 10px); justify-content:flex-end; }
+  #edgeright { right:0; left:calc(50% + var(--measure) / 2 + 10px); justify-content:flex-start; }
+  .ghostpanel { width:min(230px, 92%); height:74%; margin:0 14px; border:2px dashed var(--dim); border-radius:10px; background:var(--paper); opacity:0; transition:opacity .15s; display:flex; align-items:center; justify-content:center; box-shadow:0 6px 18px var(--shadow); }
   .edgeadd:hover .ghostpanel { opacity:.85; }
   .ghostplus { font-size:22px; color:var(--dim); font-family:system-ui,sans-serif; }
   .edgeadd:hover .ghostplus { color:var(--text); }
