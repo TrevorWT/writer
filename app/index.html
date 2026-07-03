@@ -125,6 +125,14 @@ window.addEventListener('unhandledrejection', e => reportErr('async: ' + (e.reas
           </label>
           <label class="checkrow"><input type="checkbox" id="set-export-smf"> Standard Manuscript Format for DOCX</label>
           <label class="checkrow"><input type="checkbox" id="set-export-titlepage"> Include title page</label>
+          <h3>Preview</h3>
+          <label class="checkrow"><input type="checkbox" id="set-preview-titlepage"> Show title page in preview</label>
+          <label>Preview scene separator
+            <select id="set-preview-sep">
+              <option value="* * *">* * *</option>
+              <option value="">Blank line</option>
+            </select>
+          </label>
           <label>Default author
             <input type="text" id="set-author" autocomplete="off">
           </label>

@@ -1062,6 +1062,8 @@ const defaultPrefs = () => ({
   exportDir: '',
   exportSmf: true,
   exportTitlepage: true,
+  previewTitlepage: true,
+  previewSep: '* * *',
   author: '',
   byline: '',
   contact: [],
@@ -2343,7 +2345,7 @@ function buildReadBar() {
     l.append(c, label);
     return l;
   };
-  group('', g => g.appendChild(cb('rd-titlepage', 'title page', !!prefs.exportTitlepage)));
+  group('', g => g.appendChild(cb('rd-titlepage', 'title page', !!prefs.previewTitlepage)));
   const H = treeHeight(storyTree);
   for (let li = H - 1; li >= 0; li--)
     group(LADDER[Math.min(li, LADDER.length - 1)] + 's', g => {   // same defaults as export
@@ -2353,7 +2355,7 @@ function buildReadBar() {
     const sel = document.createElement('select');
     sel.id = 'rd-sep';
     sel.innerHTML = '<option value="* * *">* * * between scenes</option><option value="">blank line between scenes</option>';
-    sel.value = prefs.exportSep;
+    sel.value = prefs.previewSep;
     sel.onchange = renderReadDoc;
     g.appendChild(sel);
   });
@@ -2504,6 +2506,8 @@ $('settingsbtn').onclick = () => {
   showExportDir();
   $('set-export-smf').checked = !!prefs.exportSmf;
   $('set-export-titlepage').checked = !!prefs.exportTitlepage;
+  $('set-preview-titlepage').checked = !!prefs.previewTitlepage;
+  $('set-preview-sep').value = prefs.previewSep;
   $('set-goal').value = +prefs.goal || 0;
   $('set-historydays').value = +prefs.historyDays || 30;
   $('set-author').value = prefs.author || '';
@@ -2530,6 +2534,8 @@ $('settingsform').onsubmit = () => {
     exportDir: prefs.exportDir || '',
     exportSmf: $('set-export-smf').checked,
     exportTitlepage: $('set-export-titlepage').checked,
+    previewTitlepage: $('set-preview-titlepage').checked,
+    previewSep: $('set-preview-sep').value,
     author: $('set-author').value.trim(),
     byline: $('set-byline').value.trim(),
     contact: $('set-contact').value.split('\n').map(s => s.trim()).filter(Boolean),
