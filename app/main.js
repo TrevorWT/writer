@@ -512,6 +512,14 @@ function render() {
     wrap.appendChild(panelEl(c));
     wrap.appendChild(gapEl(f, i + 1));
   });
+  if (layout.grid && !panelsHidden && f.children.length) {
+    const add = document.createElement('div');
+    add.className = 'panel addcard';
+    add.textContent = '+';
+    add.title = 'Add section';
+    add.onclick = () => addChild(f, f.children.length);
+    wrap.appendChild(add);
+  }
 
   renderTimeline();
   renderOutline();

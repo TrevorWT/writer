@@ -352,3 +352,9 @@
   #viewseg button { width:28px; height:26px; border:none; border-radius:5px; background:transparent; color:var(--dim); padding:0; display:flex; align-items:center; justify-content:center; cursor:pointer; }
   #viewseg button:hover { color:var(--text); }
   #viewseg button.active { background:var(--bg); color:var(--text); box-shadow:0 1px 3px var(--shadow); }
+  /* grid: no inter-card gaps (they break row alignment); real gutters + add-card */
+  #main.grid #panels { gap:10px; }
+  #main.grid #panels .gap:not(.bigwrap) { display:none; }
+  #main.grid #panels .panel { margin:0; }
+  .addcard { border-style:dashed !important; background:transparent !important; box-shadow:none !important; display:flex; align-items:center; justify-content:center; color:var(--dim); font-size:26px; }
+  .addcard:hover { color:var(--text); border-color:var(--dim) !important; transform:none !important; }
