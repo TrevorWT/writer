@@ -180,7 +180,7 @@
   .gap.dragover { background:var(--accent); border-radius:3px; }
   /* grid view: many small panels, wrap + vertical scroll, for restructuring */
   #main.grid #panels { flex-wrap:wrap; overflow-y:auto; overflow-x:hidden; justify-content:flex-start; align-content:flex-start; }
-  #main.grid .panel { flex:0 0 var(--gridw, 180px); min-height:calc(var(--gridw, 180px) * 0.89); max-height:calc(var(--gridw, 180px) * 1.17); padding:12px 11px; margin:3px 0; }
+  #main.grid .panel { flex:0 0 var(--gridw, 180px); height:calc(var(--gridw, 180px) * 1.17); padding:12px 11px; margin:3px 0; }
   #main.grid .panel h4 { font-size:.92em; margin:0 0 6px; }
   #main.grid .panel .preview { font-size:.72em; line-height:1.45; }
   #main.grid .panel .kind { font-size:9px; margin-bottom:3px; }
@@ -365,3 +365,5 @@
   .panel:hover .gplus { opacity:1; }
   .gplus:hover { border-color:var(--accent); color:var(--accent); border-style:solid; background:var(--hover); }
   .gplus.left { right:auto; left:-24px; }
+  /* grid cards: text fades out at the bottom instead of hard-clipping */
+  #main.grid .panel .fade { display:block; height:34px; border-radius:0 0 8px 8px; }
