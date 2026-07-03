@@ -2158,7 +2158,12 @@ $('storyinfoform').onsubmit = () => {
   save();
 };
 makeDropTarget($('storyname'), () => [storyTree, storyTree.children.length]);   // drop = promote to top level
-$('newstory').onclick = () => {
+$('newstory').onclick = async () => {
+  if (!libPath) {   // no library yet: ask for the folder first, then continue
+    const p = await FS.pickFolder();
+    if (!p) return;
+    await openLibrary(p);
+  }
   $('ns-name').value = '';
   $('ns-template').value = prefs.newTemplate;
   $('ns-depth').value = prefs.customDepth;

@@ -31,7 +31,7 @@ window.addEventListener('unhandledrejection', e => reportErr('async: ' + (e.reas
 </div>
 <div id="sidebar">
   <div id="librarysection">
-    <div class="sechead">Stories<span class="secbtns"><span id="samplebtn" class="secbtn" title="Open sample library"></span><span id="openbtn" class="secbtn" title="Open library folder"></span><span id="newstory" class="secbtn" title="New story" hidden></span></span></div>
+    <div class="sechead">Stories<span class="secbtns"><span id="samplebtn" class="secbtn" title="Open sample library"></span><span id="openbtn" class="secbtn" title="Open library folder"></span><span id="newstory" class="secbtn" title="New story"></span></span></div>
     <div id="storylist"></div>
   </div>
   <div id="storyheader" hidden>
@@ -301,7 +301,7 @@ window.addEventListener('unhandledrejection', e => reportErr('async: ' + (e.reas
     </div>
   </form>
 </dialog>
-<div id="main">
+<div id="main" class="empty">
   <div id="crumbs">
     <div id="navbtns" hidden>
       <button id="prevbtn" class="navbtn" title="Previous sibling"></button>
