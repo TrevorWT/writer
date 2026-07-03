@@ -305,3 +305,7 @@
   .calcell.c3 { background:rgba(88,166,74,.78); }
   .calcell.c4 { background:rgb(88,166,74); }
   .calnote { color:var(--ph); font-size:12px; margin-top:12px; }
+
+  .hotkeys { border-collapse:collapse; width:100%; font-size:13px; }
+  .hotkeys td { padding:5px 8px; border-bottom:1px solid var(--line); color:var(--text2); }
+  .hotkeys td:first-child { white-space:nowrap; color:var(--text); font-family:ui-monospace,monospace; font-size:12px; width:1%; padding-right:18px; }

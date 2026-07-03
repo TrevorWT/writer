@@ -1068,8 +1068,9 @@ function doReplaceAll() {
       } catch (err) { reportErr('tag rename failed: ' + (err.stack || err)); }
     }
     render();
-    doSearch(q);
     setStatus(`Replaced ${count} occurrence${count === 1 ? '' : 's'}`);
+    if (count > 0) closeSearch();          // done — dismiss the bar
+    else doSearch(q);                      // nothing matched: leave it up to adjust
   });
 }
 $('replaceall').onmousedown = e => {

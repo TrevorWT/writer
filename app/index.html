@@ -55,6 +55,7 @@ window.addEventListener('unhandledrejection', e => reportErr('async: ' + (e.reas
         <button type="button" data-settings-tab="writing">Writing</button>
         <button type="button" data-settings-tab="export">Export</button>
         <button type="button" data-settings-tab="appearance">Appearance</button>
+        <button type="button" data-settings-tab="hotkeys">Hotkeys</button>
       </nav>
       <div class="settings-pages">
         <section class="settings-page active" data-settings-page="files">
@@ -130,7 +131,26 @@ window.addEventListener('unhandledrejection', e => reportErr('async: ' + (e.reas
           </label>
         </section>
 
-        <section class="settings-page" data-settings-page="appearance">
+        <section class="settings-page" data-settings-page="hotkeys">
+          <h3>Hotkeys & gestures</h3>
+          <table class="hotkeys">
+            <tr><td>Ctrl+P</td><td>Search the story</td></tr>
+            <tr><td>Ctrl+H</td><td>Find & replace</td></tr>
+            <tr><td>Ctrl+Z / Ctrl+Y</td><td>Undo / redo moves, deletes, adds (text has its own undo while typing)</td></tr>
+            <tr><td>Esc</td><td>Back out one layer; closes menus and panels first</td></tr>
+            <tr><td>Ctrl+scroll up</td><td>Dive into the panel under the cursor</td></tr>
+            <tr><td>Ctrl+scroll down</td><td>Back out one layer</td></tr>
+            <tr><td>Click a panel</td><td>Open it</td></tr>
+            <tr><td>Double-click a panel title</td><td>Rename it</td></tr>
+            <tr><td>Right-click a panel</td><td>Status, numbering, delete</td></tr>
+            <tr><td>Right-click selected text</td><td>Tag, note, find, replace, clipboard</td></tr>
+            <tr><td>Drag a panel</td><td>Reorder; drop on a gap places it there</td></tr>
+            <tr><td>Alt+drop on a panel</td><td>Nest inside it</td></tr>
+            <tr><td>Drag onto outline rows</td><td>Top/bottom edge = before/after, middle = inside</td></tr>
+            <tr><td>Drag onto the story name</td><td>Move to top level</td></tr>
+            <tr><td>Scroll on the panel row</td><td>Scrolls it sideways</td></tr>
+          </table>
+        </section>        <section class="settings-page" data-settings-page="appearance">
           <h3>Appearance</h3>
           <label>Theme
             <select id="themesel">
