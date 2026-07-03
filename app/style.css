@@ -11,6 +11,7 @@
     --line:#d5d2c9; --shadow:rgba(0,0,0,.14); --shadow2:rgba(0,0,0,.2); --accentText:#fff;
   }
   * { box-sizing:border-box; scrollbar-width:thin; scrollbar-color:var(--btnh) transparent; }
+  [hidden] { display:none !important; }   /* the hidden attribute always wins, no matter the display rule */
   ::-webkit-scrollbar { width:10px; height:10px; }
   ::-webkit-scrollbar-track { background:transparent; }
   ::-webkit-scrollbar-thumb { background:var(--btn); border-radius:5px; border:2px solid transparent; background-clip:padding-box; }
