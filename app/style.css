@@ -216,7 +216,7 @@
 
   #hint { color:var(--dim); font-family:system-ui,sans-serif; margin:auto; text-align:center; line-height:1.8; max-width:720px; padding:0 24px 48px; }
   #main.empty #focus, #main.empty #panels, #main.empty #timeline { display:none !important; }
-  #main.empty #hint { position:absolute; left:50%; top:50%; width:min(720px, calc(100% - 48px)); margin:0; padding:0 0 48px; transform:translate(-50%,-50%); }
+  #main.empty #hint { position:fixed; left:50vw; top:50vh; width:min(720px, calc(100vw - 48px)); margin:0; padding:0 0 48px; transform:translate(-50%,-50%); }   /* true window center, explorer or not */
   #hinttitle { color:var(--text); font-size:18px; margin-bottom:12px; }
   #hintactions { display:flex; justify-content:center; gap:10px; flex-wrap:wrap; margin-bottom:18px; }
   #hinttext { display:block; color:var(--dim); font-size:13px; line-height:1.6; }
