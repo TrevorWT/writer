@@ -781,8 +781,7 @@ function panelEl(node) {
       const gp = document.createElement('div');
       gp.className = 'gplus' + cls;
       gp.innerHTML = icon('plus', 12);
-      gp.title = title;
-      gp.dataset.label = 'Add here';
+      gp.title = 'Add section here';
       gp.onclick = e => {
         e.stopPropagation();
         const par = focus();
@@ -817,8 +816,7 @@ function gapEl(parent, index) {
   } else {
     plus.innerHTML = icon('plus', 12);
   }
-  plus.title = parent.children.length ? 'Add section here' : 'Add section';
-  plus.dataset.label = parent.children.length ? 'Add here' : '';
+  plus.title = 'Add section here';
   plus.onclick = () => addChild(parent, index);
   g.appendChild(plus);
   makeDropTarget(g, () => [parent, index]);                 // drop BETWEEN panels = reorder

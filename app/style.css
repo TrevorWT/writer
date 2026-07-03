@@ -189,7 +189,6 @@
   .gap .plus { opacity:0; width:22px; height:72%; flex-shrink:0; border-radius:7px; background:transparent; border:2px dashed var(--dim); color:var(--dim); display:flex; align-items:center; justify-content:center; cursor:pointer; transition:opacity .12s; user-select:none; position:relative; }
   .gap:hover .plus { opacity:1; }
   .gap .plus:hover { background:var(--accent); color:var(--accentText); }
-  .gap:hover .plus:not(.big)::after { content:attr(data-label); position:absolute; top:50%; left:50%; transform:translate(-50%, calc(-50% - 28px)); padding:3px 7px; border-radius:5px; background:var(--pop); border:1px solid var(--line); color:var(--text); font:11px system-ui,sans-serif; white-space:nowrap; box-shadow:0 4px 14px var(--shadow); }
   .gap.dragover { background:var(--accent); border-radius:3px; }
   /* grid view: many small panels, wrap + vertical scroll, for restructuring */
   #main.grid #panels { flex-wrap:wrap; overflow-y:auto; overflow-x:hidden; justify-content:flex-start; align-content:flex-start; }
@@ -383,5 +382,4 @@
   #main.grid .gplus.left { right:auto; left:-28px; }
   #main:not(.grid) .gplus { display:none; }
   .gplus:hover { opacity:1; }
-  .gplus:hover::after { content:attr(data-label); position:absolute; top:50%; left:50%; transform:translate(-50%, calc(-50% - 28px)); padding:3px 7px; border-radius:5px; background:var(--pop); border:1px solid var(--line); color:var(--text); font:11px system-ui,sans-serif; white-space:nowrap; box-shadow:0 4px 14px var(--shadow); }
   .gplus:hover { border-color:var(--accent); color:var(--accent); border-style:solid; background:var(--hover); }
