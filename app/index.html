@@ -35,7 +35,7 @@ window.addEventListener('unhandledrejection', e => reportErr('async: ' + (e.reas
   </div>
   <div id="storyheader" hidden>
     <div id="backlib">&lt; All stories</div>
-    <div style="display:flex;align-items:center"><div id="storyname" style="flex:1"></div><span id="restorebtn" class="secbtn" title="Restore latest story.md backup" hidden></span><span id="storyinfobtn" class="secbtn" title="Story details (author, contact)"></span></div>
+    <div style="display:flex;align-items:center"><div id="storyname" style="flex:1"></div><span id="historybtn" class="secbtn" title="History & snapshots" hidden></span><span id="storyinfobtn" class="secbtn" title="Story details (author, contact)"></span></div>
     <div class="sechead">Outline<span class="secbtns"><span id="outlinetoggle" class="secbtn" title="Expand / collapse all"></span></span></div>
     <div id="outlinelist"></div>
   </div>
@@ -66,7 +66,10 @@ window.addEventListener('unhandledrejection', e => reportErr('async: ' + (e.reas
           <label>Current story folder
             <input type="text" id="set-storypath" readonly placeholder="No story open">
           </label>
-          <p class="setting-note">Stories are plain Markdown folders with Obsidian-style links. The original story.md is backed up to .trash on first save.</p>
+          <p class="setting-note">Stories are plain Markdown folders with Obsidian-style links. Deleted or overwritten files go to the story's .trash folder.</p>
+          <label>Keep automatic backups (days)
+            <input type="number" id="set-historydays" min="1" max="365" value="30">
+          </label>
         </section>
 
         <section class="settings-page" data-settings-page="writing">
@@ -234,8 +237,17 @@ window.addEventListener('unhandledrejection', e => reportErr('async: ' + (e.reas
   </form>
 </dialog>
 
-<dialog id="askdlg">
-  <form id="askform" method="dialog">
+<dialog id="historydlg">
+  <div id="historyhead">
+    <h2 style="margin:0;flex:1">History</h2>
+    <button id="snapbtn" type="button"></button>
+  </div>
+  <p class="setting-note" style="margin-top:10px">Snapshots keep the whole story and stay until you delete them. Automatic backups (overwritten or deleted files) are pruned after a while - see Settings, Files.</p>
+  <div id="historylist"></div>
+  <div class="btns"><button type="button" onclick="this.closest('dialog').close()">Close</button></div>
+</dialog>
+
+<dialog id="askdlg">  <form id="askform" method="dialog">
     <div id="askmsg" style="white-space:pre-wrap;margin-bottom:14px;color:var(--text);max-width:420px"></div>
     <input type="text" id="askinput" autocomplete="off">
     <div class="btns">

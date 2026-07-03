@@ -307,3 +307,13 @@
   .hotkeys { border-collapse:collapse; width:100%; font-size:13px; }
   .hotkeys td { padding:5px 8px; border-bottom:1px solid var(--line); color:var(--text2); }
   .hotkeys td:first-child { white-space:nowrap; color:var(--text); font-family:ui-monospace,monospace; font-size:12px; width:1%; padding-right:18px; }
+  #historyhead { display:flex; align-items:center; gap:12px; }
+  #historylist { max-height:50vh; overflow-y:auto; margin-top:6px; }
+  .hrow { display:flex; align-items:center; gap:12px; padding:7px 4px; border-bottom:1px solid var(--line); font-size:13px; }
+  .htype { flex:0 0 74px; text-align:center; font-size:10px; text-transform:uppercase; letter-spacing:.06em; padding:2px 0; border-radius:99px; border:1px solid var(--dim); color:var(--dim); }
+  .htype.t-snapshot { color:#a3d9a5; border-color:#a3d9a5; }
+  .htype.t-skeleton { color:#9ecbff; border-color:#9ecbff; }
+  .htype.t-tag { color:#e8c07d; border-color:#e8c07d; }
+  .hlabel { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text); }
+  .hdate { color:var(--dim); font-size:12px; white-space:nowrap; }
+  .hrow button { font-size:12px; padding:4px 10px; }

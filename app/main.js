@@ -21,7 +21,8 @@ document.getElementById('undobtn').innerHTML = icon('undo', 14);
 document.getElementById('redobtn').innerHTML = icon('redo', 14);
 document.getElementById('modebtn').innerHTML = icon('pencil', 13) + ' editing';
 document.getElementById('storyinfobtn').innerHTML = icon('pencil', 12);
-document.getElementById('restorebtn').innerHTML = icon('undo', 12);
+document.getElementById('historybtn').innerHTML = icon('history', 12);
+document.getElementById('snapbtn').innerHTML = icon('camera', 13) + ' Snapshot now';
 document.getElementById('statsbtn').innerHTML = icon('chart', 17);
 
 const KIND = ['Story', 'Part', 'Chapter', 'Scene', 'Page', 'Section', 'Section'];
@@ -104,18 +105,139 @@ async function trashFile(name, text) {
   const tp = FS.join(storyPath, '.trash');
   await FS.mkdir(tp);
   await FS.writeText(FS.join(tp, `${Date.now()} ${name}`), text);
-  await updateRestoreButton();
 }
-async function latestStoryBackup() {
-  if (!storyPath || !(await FS.exists(FS.join(storyPath, '.trash')).catch(() => false))) return null;
-  const files = (await FS.readDir(FS.join(storyPath, '.trash')))
-    .filter(f => !f.isDir && f.name.endsWith(' story.md'))
-    .sort((a, b) => b.name.localeCompare(a.name));
-  return files[0] ? FS.join(storyPath, '.trash', files[0].name) : null;
+
+// ---- history: snapshots + automatic backups in .trash/ ----
+const trashDir = () => FS.join(storyPath, '.trash');
+async function listHistory() {
+  if (!storyPath || !(await FS.exists(trashDir()).catch(() => false))) return [];
+  const out = [];
+  for (const f of await FS.readDir(trashDir())) {
+    if (f.isDir) continue;
+    const m = f.name.match(/^(\d{13}) (.+)$/);
+    if (!m) continue;
+    const ts = +m[1], rest = m[2];
+    let type = 'chapter', label = rest.replace(/\.md$/, '');
+    if (rest === 'story.md') { type = 'skeleton'; label = 'story.md backup'; }
+    else if (rest.startsWith('snapshot')) { type = 'snapshot'; label = rest.replace(/^snapshot ?/, '').replace(/\.md$/, '') || 'snapshot'; }
+    else if (rest.startsWith('tag')) { type = 'tag'; label = rest.replace(/^tag[ -]/, '').replace(/\.md$/, ''); }
+    out.push({ file: f.name, ts, rest, type, label });
+  }
+  return out.sort((a, b) => b.ts - a.ts);
 }
-async function updateRestoreButton() {
-  $('restorebtn').hidden = !(await latestStoryBackup());
+async function takeSnapshot(label = '') {
+  if (!storyTree) return;
+  await FS.mkdir(trashDir());
+  const text = buildFrontmatter(storyMeta) + serialize(storyTree);
+  await FS.writeText(FS.join(trashDir(), `${Date.now()} snapshot${label ? ' ' + label : ''}.md`), text);
 }
+async function pruneHistory() {
+  try {
+    const days = Math.max(1, +prefs.historyDays || 30);
+    const cutoff = Date.now() - days * 86400000;
+    const autos = (await listHistory()).filter(e => e.type !== 'snapshot');
+    const keep = new Set(autos.slice(0, 10).map(e => e.file));   // always keep the 10 newest
+    for (const e of autos)
+      if (e.ts < cutoff && !keep.has(e.file)) await FS.remove(FS.join(trashDir(), e.file)).catch(() => {});
+  } catch {}
+}
+async function restoreHistory(ent) {
+  const text = await FS.readText(FS.join(trashDir(), ent.file));
+  if (ent.type === 'snapshot' || ent.type === 'skeleton') {
+    if (!(await appConfirm('Restore this version? The current story is snapshotted first, so nothing is lost.'))) return;
+    await takeSnapshot('before restore');
+    if (ent.type === 'skeleton') {
+      await FS.writeText(FS.join(storyPath, 'story.md'), text);
+      storyBackup = null;
+      $('historydlg').close();
+      await openStory(storyName);
+      return;
+    }
+    const fm = splitFrontmatter(text);
+    storyMeta = fm.meta;
+    const t = parse(fm.body, storyName);
+    storyTree = t; tree = t; currentTag = null; currentTagPath = null; path = [t];
+    chapterCache = new Map();
+    undoStack.length = 0; redoStack.length = 0; updateHistBtns();
+    await save();
+    $('historydlg').close();
+    render();
+    setStatus('Snapshot restored');
+  } else if (ent.type === 'chapter') {
+    if (!(await appConfirm('Add this backed-up chapter to the end of the story?'))) return;
+    const cparsed = parse(text, '', { unwrap: false });
+    const node = {
+      depth: 1,
+      title: (ent.rest.replace(/^\d+\s*/, '').replace(/\.md$/, '') || 'Restored chapter'),
+      body: cparsed.body, notes: cparsed.notes, children: cparsed.children,
+    };
+    const host = storyTree.children.length ? storyTree.children[storyTree.children.length - 1] : storyTree;
+    (function fix(k, d) { k.depth = d; k.children.forEach(x => fix(x, d + 1)); })(node, host.depth + 1);
+    pushUndo();
+    host.children.push(node);
+    currentTag = null; currentTagPath = null; tree = storyTree;
+    await save();
+    $('historydlg').close();
+    render();
+  } else {   // tag backup
+    const m = ent.rest.match(/^tag (\S+) (.+)\.md$/);
+    const cat = m ? m[1] : 'restored';
+    const name = m ? m[2] : ent.rest.replace(/^tag-?/, '').replace(/\.md$/, '');
+    await FS.mkdir(tagDirPath(cat));
+    await FS.writeText(tagFilePath(cat, name), text);
+    await refreshTags();
+    render();
+    setStatus(`Tag "${name}" restored`);
+    renderHistory();
+  }
+}
+async function renderHistory() {
+  const list = $('historylist');
+  list.innerHTML = '';
+  const ents = await listHistory();
+  if (!ents.length) {
+    list.innerHTML = '<p class="setting-note">Nothing here yet. Take a snapshot before a big rewrite - it saves the whole story as one file.</p>';
+    return;
+  }
+  for (const ent of ents) {
+    const row = document.createElement('div');
+    row.className = 'hrow';
+    const type = document.createElement('span');
+    type.className = 'htype t-' + ent.type;
+    type.textContent = ent.type === 'skeleton' ? 'backup' : ent.type;
+    const label = document.createElement('span');
+    label.className = 'hlabel';
+    label.textContent = ent.label;
+    const date = document.createElement('span');
+    date.className = 'hdate';
+    date.textContent = new Date(ent.ts).toLocaleString();
+    const rst = document.createElement('button');
+    rst.type = 'button';
+    rst.textContent = 'Restore';
+    rst.onclick = () => restoreHistory(ent);
+    const del = document.createElement('span');
+    del.className = 'rowdel';
+    del.style.visibility = 'visible';
+    del.textContent = 'âœ•';
+    del.title = 'Delete permanently';
+    del.onclick = async () => {
+      if (!(await appConfirm('Delete this history entry permanently?'))) return;
+      await FS.remove(FS.join(trashDir(), ent.file));
+      renderHistory();
+    };
+    row.append(type, label, date, rst, del);
+    list.appendChild(row);
+  }
+}
+$('historybtn').onclick = () => { $('historydlg').showModal(); renderHistory(); };
+$('snapbtn').onclick = async () => {
+  const label = await appPrompt('Label this snapshot (optional):', '');
+  if (label === null) return;
+  await takeSnapshot(label.trim().replace(/[\\/:*?"<>|]/g, ''));
+  setStatus('Snapshot saved');
+  renderHistory();
+};
+
 async function save() {
   setStatus('Saving...');
   try {
@@ -775,6 +897,7 @@ const defaultPrefs = () => ({
   customDepth: 3,
   customCount: 3,
   goal: 0,
+  historyDays: 30,
   exportFormat: 'docx',
   exportSep: '* * *',
   exportDir: '',
@@ -1282,7 +1405,7 @@ async function deleteTag(cat, name) {
   try {
     const p = tagFilePath(cat, name);
     const text = await FS.readText(p);
-    if (text.trim()) await trashFile(`tag-${name}.md`, text);
+    if (text.trim()) await trashFile(`tag ${cat} ${name}.md`, text);
     await FS.remove(p);
   } catch {}
   if (currentTag && currentTag.name === name) await openStory(storyName);
@@ -1766,7 +1889,8 @@ async function openStory(name, el) {
   trackDay();
   await refreshTags();
   render();
-  await updateRestoreButton();
+  $('historybtn').hidden = false;
+  pruneHistory();
   setStatus('');
   // watch for external edits (Obsidian, scripts) — reload unless we just saved
   if (unwatchStory) { unwatchStory(); unwatchStory = null; }
@@ -1792,20 +1916,12 @@ $('backlib').onclick = () => {
   $('tagsection').hidden = true;
   if (unwatchStory) { unwatchStory(); unwatchStory = null; }
   storyPath = null; storyName = ''; tree = null; storyTree = null; currentTag = null;
-  $('restorebtn').hidden = true;
+  $('historybtn').hidden = true;
+
   setStatus('');
   render();
 };
 $('storyname').onclick = () => openStory(storyName);
-$('restorebtn').onclick = async () => {
-  const p = await latestStoryBackup();
-  if (!p) return;
-  if (!(await appConfirm('Restore the latest story.md backup from .trash? Current story.md will be replaced.'))) return;
-  await FS.writeText(FS.join(storyPath, 'story.md'), await FS.readText(p));
-  storyBackup = null;
-  await openStory(storyName);
-  setStatus('Restored story.md backup');
-};
 $('storyinfobtn').onclick = () => {
   $('si-author').value = storyMeta.author || '';
   $('si-byline').value = storyMeta.byline || '';
@@ -2057,6 +2173,7 @@ $('settingsbtn').onclick = () => {
   $('set-export-smf').checked = !!prefs.exportSmf;
   $('set-export-titlepage').checked = !!prefs.exportTitlepage;
   $('set-goal').value = +prefs.goal || 0;
+  $('set-historydays').value = +prefs.historyDays || 30;
   $('set-author').value = prefs.author || '';
   $('set-byline').value = prefs.byline || '';
   $('set-contact').value = [].concat(prefs.contact || []).join('\n');
@@ -2075,6 +2192,7 @@ $('settingsform').onsubmit = () => {
     customDepth: Math.min(5, +$('set-depth').value || 1),
     customCount: Math.min(8, +$('set-count').value || 1),
     goal: Math.max(0, +$('set-goal').value || 0),
+    historyDays: Math.max(1, +$('set-historydays').value || 30),
     exportFormat: $('set-export-format').value,
     exportSep: $('set-export-sep').value,
     exportDir: prefs.exportDir || '',
