@@ -19,6 +19,8 @@ export const ICONS = {
   chart: '<path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/>',
   x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
   history: '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/>',
+  chevleft: '<path d="m15 18-6-6 6-6"/>',
+  chevright: '<path d="m9 18 6-6-6-6"/>',
   arrowup: '<path d="m5 12 7-7 7 7"/><path d="M12 19V5"/>',
   camera: '<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/>',
 };

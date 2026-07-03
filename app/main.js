@@ -23,7 +23,10 @@ document.getElementById('modebtn').innerHTML = icon('pencil', 13) + ' editing';
 document.getElementById('storyinfobtn').innerHTML = icon('pencil', 12);
 document.getElementById('historybtn').innerHTML = icon('history', 12);
 document.getElementById('snapbtn').innerHTML = icon('camera', 13) + ' Snapshot now';
-document.getElementById('upzoneicon').innerHTML = icon('arrowup', 14);
+document.getElementById('upzoneicon').innerHTML = icon('arrowup', 16);
+document.getElementById('upbtn').innerHTML = icon('arrowup', 18);
+document.getElementById('prevbtn').innerHTML = icon('chevleft', 18);
+document.getElementById('nextbtn').innerHTML = icon('chevright', 18);
 document.getElementById('statsbtn').innerHTML = icon('chart', 17);
 
 const KIND = ['Story', 'Part', 'Chapter', 'Scene', 'Page', 'Section', 'Section'];
@@ -418,8 +421,14 @@ function render() {
   $('focus').hidden = !has;
   $('modebtn').hidden = !has;
   $('topsearch').hidden = !has;
-  $('upbtn').hidden = !has;
-  $('upbtn').style.visibility = has && (path.length > 1 || currentTag) ? 'visible' : 'hidden';
+  $('navbtns').hidden = !has;
+  $('navbtns').style.visibility = has && (path.length > 1 || currentTag) ? 'visible' : 'hidden';
+  {
+    const par = path.length > 1 ? path[path.length - 2] : null;
+    const i = par ? par.children.indexOf(path[path.length - 1]) : -1;
+    $('prevbtn').disabled = !par || i <= 0;
+    $('nextbtn').disabled = !par || i < 0 || i >= par.children.length - 1;
+  }
   $('histbtns').hidden = !has || !!currentTag;
   $('panelsbtn').hidden = !has || !focusHasChildren();
   $('crumbpath').innerHTML = '';
@@ -957,6 +966,17 @@ $('upbtn').onclick = () => {
   if (path.length > 1) { path.pop(); render(); }
   else if (currentTag) openStory(storyName);   // tag page root -> back to the story
 };
+function gotoSibling(dir) {
+  if (path.length < 2) return;
+  const par = path[path.length - 2];
+  const i = par.children.indexOf(path[path.length - 1]);
+  const target = par.children[i + dir];
+  if (!target) return;
+  path[path.length - 1] = target;
+  render();
+}
+$('prevbtn').onclick = () => gotoSibling(-1);
+$('nextbtn').onclick = () => gotoSibling(1);
 $('panelsbtn').onclick = () => { panelsHidden = !panelsHidden; render(); };
 $('gridbtn').onclick = () => { layout.grid = !layout.grid; saveLayout(); render(); };
 

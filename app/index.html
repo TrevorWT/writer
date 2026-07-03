@@ -295,7 +295,11 @@ window.addEventListener('unhandledrejection', e => reportErr('async: ' + (e.reas
   <div id="focus" hidden>
     <div id="focuskind"></div>
     <div id="titlerow">
-      <button id="upbtn" hidden title="Back out one layer (Esc)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+      <div id="navbtns" hidden>
+        <button id="prevbtn" class="navbtn" title="Previous sibling"></button>
+        <button id="upbtn" class="navbtn" title="Up a level (Esc)"></button>
+        <button id="nextbtn" class="navbtn" title="Next sibling"></button>
+      </div>
       <div id="focustitle"></div>
     </div>
     <div id="focusbody"></div>
