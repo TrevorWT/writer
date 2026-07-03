@@ -252,6 +252,17 @@ window.addEventListener('unhandledrejection', e => reportErr('async: ' + (e.reas
   <div class="btns"><button type="button" onclick="this.closest('dialog').close()">Close</button></div>
 </dialog>
 
+<dialog id="guidedlg">
+  <h2 style="margin:0 0 4px">How Writer works</h2>
+  <p class="setting-note" style="margin:0 0 16px">The five ideas that make everything else make sense.</p>
+  <div class="guiderow"><div class="gicon" data-i="folder"></div><div><b>Your stories are plain files.</b><br>A story is a folder of markdown - readable in any editor, safe forever, never locked in. Pick any folder as your library and start.</div></div>
+  <div class="guiderow"><div class="gicon" data-i="grid"></div><div><b>Zoom instead of scroll.</b><br>Panels are your story's pieces. Click one to dive in, or Ctrl+scroll up over it. Ctrl+scroll down (or Esc, or the arrow by the title) backs out. Leaves are scenes - add a panel inside a scene and it becomes a chapter on its own.</div></div>
+  <div class="guiderow"><div class="gicon" data-i="pencil"></div><div><b>Plan and write in the same place.</b><br>Text on a chapter or part is planning - it stays out of your exported manuscript. Text in a scene is the book. The Notes tab on the right edge holds side notes for any section.</div></div>
+  <div class="guiderow"><div class="gicon" data-i="search"></div><div><b>Tag your world as you write.</b><br>Select a character's name, right-click, Tag. Every mention everywhere becomes a link to their page, which lists everywhere they appear. Same for places, items, anything.</div></div>
+  <div class="guiderow"><div class="gicon" data-i="history"></div><div><b>You can't lose work.</b><br>Everything autosaves. Ctrl+Z undoes moves and deletes. The clock icon keeps snapshots and automatic backups of anything overwritten - restore with one click.</div></div>
+  <p class="setting-note" style="margin:14px 0 0">Every shortcut and gesture: Settings &gt; Hotkeys. Reopen this guide anytime with the ? button on the left rail.</p>
+  <div class="btns"><button type="button" id="guideclose">Got it</button></div>
+</dialog>
 <dialog id="askdlg">  <form id="askform" method="dialog">
     <div id="askmsg" style="white-space:pre-wrap;margin-bottom:14px;color:var(--text);max-width:420px"></div>
     <input type="text" id="askinput" autocomplete="off">
