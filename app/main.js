@@ -218,7 +218,7 @@ async function renderHistory() {
     const del = document.createElement('span');
     del.className = 'rowdel';
     del.style.visibility = 'visible';
-    del.textContent = 'âœ•';
+    del.textContent = '✕';
     del.title = 'Delete permanently';
     del.onclick = async () => {
       if (!(await appConfirm('Delete this history entry permanently?'))) return;
