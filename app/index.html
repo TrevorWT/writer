@@ -336,7 +336,10 @@ window.addEventListener('unhandledrejection', e => reportErr('async: ' + (e.reas
   </div>
   <div id="readview" hidden>
     <div id="readbar"></div>
-    <div id="readscroll"><div id="readdoc"></div></div>
+    <div id="readmainrow">
+      <div id="readtoc"></div>
+      <div id="readscroll"><div id="readdoc"></div></div>
+    </div>
   </div>
   <div id="statusrow"><span id="savestatus">No story open</span><span id="sectionstatus" hidden></span><span id="goalpill" hidden></span></div>
   <div id="hint">

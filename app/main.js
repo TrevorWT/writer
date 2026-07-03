@@ -2216,6 +2216,7 @@ function compileNode(n, base, opts) {
         ? label + (n.title ? ' — ' + n.title : '')       // "Chapter 1 — Down the Rabbit-Hole"
         : (n.title || label || 'Untitled');
       out.push('#'.repeat(Math.min(6, n.depth - base + 1)) + ' ' + title);
+      if (opts.titles) opts.titles.push(n);   // preview: node behind each heading, in document order
     }
     const body = cleanText(n.body);
     if (body && layer.contents) out.push(body);
@@ -2281,10 +2282,47 @@ function readOpts() {
   }
   return { sep: $('rd-sep').value, H, layers };
 }
+function pathToNode(root, target) {
+  if (root === target) return [root];
+  for (const c of root.children) {
+    const p = pathToNode(c, target);
+    if (p) return [root, ...p];
+  }
+  return null;
+}
 function renderReadDoc() {
-  const md = compileNode(storyTree, storyTree.depth, readOpts()).join('\n\n');
+  const opts = readOpts();
+  opts.titles = [];
+  const md = compileNode(storyTree, storyTree.depth, opts).join('\n\n');
   const tp = $('rd-titlepage').checked ? titlePageData(storyTree) : null;
-  $('readdoc').innerHTML = titlePageHtml(storyTree.title, tp) + mdBlocksHtml(md);
+  $('readdoc').innerHTML = titlePageHtml(storyTree.title, tp) + '<div id="readbody">' + mdBlocksHtml(md) + '</div>';
+  // Nth heading in the body = Nth node compileNode pushed: click a heading to edit that section
+  const hs = [...$('readdoc').querySelectorAll('#readbody :is(h1,h2,h3,h4,h5,h6)')];
+  hs.forEach((h, i) => {
+    const n = opts.titles[i];
+    if (!n) return;
+    h.classList.add('rdjump');
+    h.title = 'Edit this section';
+    h.onclick = () => {   // render() closes the preview
+      const p = pathToNode(storyTree, n);
+      if (!p) return;
+      currentTag = null; currentTagPath = null; tree = storyTree; path = p;
+      render();
+    };
+  });
+  const toc = $('readtoc');
+  toc.innerHTML = '';
+  for (let i = 0; i < hs.length; i++) {
+    const n = opts.titles[i];
+    if (!n || !n.children.length) continue;   // scenes stay out of the outline
+    const row = document.createElement('div');
+    row.className = 'rdtocrow';
+    row.style.paddingLeft = (10 + (n.depth - storyTree.depth - 1) * 14) + 'px';
+    row.textContent = hs[i].textContent;
+    row.onclick = () => hs[i].scrollIntoView({ behavior: 'smooth', block: 'start' });
+    toc.appendChild(row);
+  }
+  toc.hidden = !toc.children.length;
 }
 function buildReadBar() {
   const bar = $('readbar');
